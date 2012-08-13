@@ -2,8 +2,12 @@
 # This file defines all application routes (Higher priority routes first)
 # ~~~~
 
-# Home page
+# Redirect Lost Users
 GET     /                           controllers.Application.index
 
-# Map static resources from the /public folder to the /assets URL path
+# API
+GET    /user/*user                  controllers.Application.user(user)
+PUT    /share/*from/*to             controllers.Application.share(from,to)
+PUT    /register/*device/*user      controllers.Application.register(device,user)
+
 GET     /assets/*file               controllers.Assets.at(path="/public", file)
