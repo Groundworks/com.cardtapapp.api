@@ -4,6 +4,7 @@ import org.specs2.mutable._
 import play.api.test._
 import play.api.test.Helpers._
 import com.dd.plist._
+import play.api.libs.ws._
 import org.junit.runner.RunWith
 import org.specs2.runner.JUnitRunner
 import com.dd.plist.NSDictionary
@@ -25,6 +26,17 @@ class ApplicationSpec extends Specification {
         val nsdict = nsobject.asInstanceOf[NSDictionary]
 
         nsdict must not be null
+      }
+    }
+    "return an NSDictionary with an array of cards" in {
+      running(FakeApplication()) {
+        val result = controllers.Application.user("demo")(FakeRequest())
+        val nsobject = PropertyListParser.parse(contentAsBytes(result))
+        val nsdict = nsobject.asInstanceOf[NSDictionary]
+
+        val cardarray = nsdict.objectForKey("Cards").asInstanceOf[NSArray]
+        
+        cardarray must not be null
       }
     }
   }
