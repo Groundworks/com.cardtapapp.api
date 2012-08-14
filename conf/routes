@@ -5,7 +5,7 @@
 # Redirect Lost Users
 GET    /                            controllers.Application.index
 
-GET    /register/*user              controllers.Application.register(user)
+POST   /register                    controllers.Application.register
 GET    /confirm/*key                controllers.Application.confirm(key)
 GET    /poll/*device                controllers.Application.poll(device)
 GET    /user/*key                   controllers.Application.user(key)
