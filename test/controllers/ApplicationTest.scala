@@ -15,6 +15,8 @@ class ApplicationSpec extends Specification {
 
   def reg = FakeRequest(POST, "/register")
 
+  def register = routeAndCall(reg.withFormUrlEncodedBody("email" -> "bob")).get
+
   "Registration" should {
     "Expect Form Data" in {
       val Some(result) = routeAndCall(reg)
@@ -27,15 +29,10 @@ class ApplicationSpec extends Specification {
       status(result) must equalTo(400)
     }
     "Include Location on Success" in {
-      val Some(result) = routeAndCall(reg.withFormUrlEncodedBody("email" -> "bob"))
-      
-      header("Location",result) must not beNone
+      header("Location", register) must not beNone
     }
     "201 Create on Success" in {
-      val Some(result) = routeAndCall(reg.withFormUrlEncodedBody("email" -> "bob"))
-
-      status(result) must equalTo(201)
-      header("Location", result) must not be equalTo(None)
+      status(register) must equalTo(201)
     }
   }
 
@@ -46,7 +43,7 @@ class ApplicationSpec extends Specification {
       status(result) must equalTo(404)
     }
     "Redirect after registration" in {
-      val Some(result) = routeAndCall(reg.withFormUrlEncodedBody("email" -> "bob"))
+      register
       controllers.Application.authorization.map { item =>
         val authKey = item._1
         val Some(result2) = routeAndCall(FakeRequest(GET, "/authorize/" + authKey))
@@ -55,42 +52,38 @@ class ApplicationSpec extends Specification {
       } must not be empty
     }
     "Redirect to custom scheme after success" in {
-      val Some(result) = routeAndCall(reg.withFormUrlEncodedBody("email" -> "bob"))
-      val Some(location) = header("Location", result)
+      val Some(location) = header("Location", register)
       val device = location.split("/")(2)
       controllers.Application.registration.get(device).map { registration =>
         val Some(result2) = routeAndCall(FakeRequest(GET, "/authorize/" + registration.authcode))
-        val url = header("Location",result2).get
-        
-        url must be equalTo("cardtapapp+http://localhost/login/" + device)
+        val url = header("Location", result2).get
+
+        url must be equalTo ("cardtapapp+http://localhost/login/" + device)
       } must not beNone
     }
   }
 
   "Login" should {
     "Not Found for Missing Device" in {
-      val Some(result) = routeAndCall(FakeRequest(GET,"/login/abc"))
-      
-      status(result) must be equalTo(404)
+      val Some(result) = routeAndCall(FakeRequest(GET, "/login/abc"))
+
+      status(result) must be equalTo (404)
     }
     "Fail without authorization" in {
-      routeAndCall(FakeRequest(POST, "/register").withFormUrlEncodedBody("email" -> "bob")).map { result =>
-        val redirect = header("Location", result).get
-        val Some(loginResult) = routeAndCall(FakeRequest(GET, redirect))
+      val redirect = header("Location", register).get
+      val Some(loginResult) = routeAndCall(FakeRequest(GET, redirect))
 
-        status(loginResult) must equalTo(401)
-
-      } must not be equalTo(None)
+      status(loginResult) must equalTo(401)
     }
     "Succeed After Aurhotirzation" in {
-      val Some(result) = routeAndCall(reg.withFormUrlEncodedBody("email" -> "bob"))
+      val result = register
       val Some(location) = header("Location", result)
       val device = location.split("/")(2)
       println("Getting Device Key From Location Url: %s" format device)
       controllers.Application.registration.get(device).map { registration =>
         val authKey = registration.authcode
         val Some(result2) = routeAndCall(FakeRequest(GET, "/authorize/" + authKey))
-        val Some(result3) = routeAndCall(FakeRequest(GET, header("Location", result).get))
+        val Some(result3) = routeAndCall(FakeRequest(GET, header("Location",result).get))
         status(result3) must equalTo(200)
 
       } must not be empty
