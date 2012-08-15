@@ -48,14 +48,19 @@ object Application extends Controller {
     }
   }
   
-  def authorize(authcode:String) = Action {
+  def authorize(authcode:String) = Action { request =>
     Logger.info("Authorizing with Code %s" format authcode)
     authorization.get(authcode).map { registration => 
       registration.authorized = true
-      Redirect( routes.Application.login(registration.device) )
+      val path = routes.Application.login(registration.device).toString
+      val prot = "cardtapapp+http"
+      val host = if(request.host==""){"localhost"}else{request.host}
+      val redirect = "%s://%s%s" format (prot,host,path)
+      Logger.debug("Redirecting to %s" format redirect )
+      Redirect( redirect )
     }.getOrElse{NotFound}
   }
-
+  
   def login(device:String) = Action{
     Logger.info("Attempting Device %s Log In" format device)
     registration.get(device).map { registration =>

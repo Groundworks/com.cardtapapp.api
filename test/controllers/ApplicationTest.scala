@@ -8,6 +8,7 @@ import play.api.libs.ws._
 import org.junit.runner.RunWith
 import org.specs2.runner.JUnitRunner
 import com.dd.plist.NSDictionary
+import java.net.URL
 
 @RunWith(classOf[JUnitRunner])
 class ApplicationSpec extends Specification {
@@ -44,23 +45,24 @@ class ApplicationSpec extends Specification {
 
       status(result) must equalTo(404)
     }
-    "Exist after registration" in {
+    "Redirect after registration" in {
       val Some(result) = routeAndCall(reg.withFormUrlEncodedBody("email" -> "bob"))
       controllers.Application.authorization.map { item =>
         val authKey = item._1
         val Some(result2) = routeAndCall(FakeRequest(GET, "/authorize/" + authKey))
 
-        status(result2) must beLessThan(399)
+        status(result2) must beEqualTo(303)
       } must not be empty
     }
-    "Redirect after success" in {
+    "Redirect to custom scheme after success" in {
       val Some(result) = routeAndCall(reg.withFormUrlEncodedBody("email" -> "bob"))
       val Some(location) = header("Location", result)
       val device = location.split("/")(2)
       controllers.Application.registration.get(device).map { registration =>
         val Some(result2) = routeAndCall(FakeRequest(GET, "/authorize/" + registration.authcode))
-        status(result2) must be equalTo(303)
-        header("Location",result2).get must be equalTo("/login/"+device)
+        val url = header("Location",result2).get
+        
+        url must be equalTo("cardtapapp+http://localhost/login/" + device)
       } must not beNone
     }
   }
