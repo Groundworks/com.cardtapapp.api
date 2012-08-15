@@ -60,15 +60,14 @@ class ApplicationSpec extends Specification {
     }
   }
 
-  def loginWithAuthorization = {
-    val reg = register
+  def loginWithAuthorization(reg:play.api.mvc.Result) = {
     val aut = authorize(reg)
     val dev = resultToDeviceKey(reg)
     routeAndCall(FakeRequest(GET, "/login/" + dev))
   }
 
-  def userDataWithAuthorization = {
-    loginWithAuthorization.map { result =>
+  def userDataWithAuthorization(reg:play.api.mvc.Result) = {
+    loginWithAuthorization(reg).map { result =>
       PropertyListParser.parse(contentAsBytes(result))
     }
   }
@@ -92,17 +91,32 @@ class ApplicationSpec extends Specification {
       status(result2) must equalTo(200)
     }
     "Return Content-Type application/plist on Success" in {
-      val Some(result) = loginWithAuthorization
+      val Some(result) = loginWithAuthorization(register)
       contentType(result) must be beSome ("application/plist")
     }
     "Return a Plist" in {
-      userDataWithAuthorization must not beNull
+      userDataWithAuthorization(register) must not beNull
     }
   }
+
   "Login Data" should {
     "be an NSDictionary" in {
-      val plist = userDataWithAuthorization.get
+      val plist = userDataWithAuthorization(register).get
       plist must haveClass[NSDictionary]
+    }
+    "contain user email" in {
+      val dict = userDataWithAuthorization(register).get.asInstanceOf[NSDictionary]
+      val emailObj = dict.objectForKey("Email")
+      emailObj must haveClass[NSString]
+    }
+    "contain registered email" in {
+      val email = "XYZ"
+      val Some(res) = routeAndCall( FakeRequest(POST,"/register").withFormUrlEncodedBody("email"->email) )
+      userDataWithAuthorization(res).map{ result =>
+        val dict = result.asInstanceOf[NSDictionary]
+        val nsstring = dict.objectForKey("Email").asInstanceOf[NSString]
+        nsstring.toString() must beEqualTo(email)
+      } must not beNone
     }
   }
 }
