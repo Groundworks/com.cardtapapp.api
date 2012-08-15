@@ -52,7 +52,7 @@ object Application extends Controller {
     Logger.info("Authorizing with Code %s" format authcode)
     authorization.get(authcode).map { registration => 
       registration.authorized = true
-      Created.withHeaders("Location"->routes.Application.login(registration.device).toString )
+      Redirect( routes.Application.login(registration.device) )
     }.getOrElse{NotFound}
   }
 

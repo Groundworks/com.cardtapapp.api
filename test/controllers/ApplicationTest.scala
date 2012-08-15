@@ -50,8 +50,18 @@ class ApplicationSpec extends Specification {
         val authKey = item._1
         val Some(result2) = routeAndCall(FakeRequest(GET, "/authorize/" + authKey))
 
-        status(result2) must equalTo(201)
+        status(result2) must beLessThan(399)
       } must not be empty
+    }
+    "Redirect after success" in {
+      val Some(result) = routeAndCall(reg.withFormUrlEncodedBody("email" -> "bob"))
+      val Some(location) = header("Location", result)
+      val device = location.split("/")(2)
+      controllers.Application.registration.get(device).map { registration =>
+        val Some(result2) = routeAndCall(FakeRequest(GET, "/authorize/" + registration.authcode))
+        status(result2) must be equalTo(303)
+        header("Location",result2).get must be equalTo("/login/"+device)
+      } must not beNone
     }
   }
 
