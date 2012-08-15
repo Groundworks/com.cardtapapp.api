@@ -25,7 +25,12 @@ class ApplicationSpec extends Specification {
 
       status(result) must equalTo(400)
     }
-    "Create on Success" in {
+    "Include Location on Success" in {
+      val Some(result) = routeAndCall(reg.withFormUrlEncodedBody("email" -> "bob"))
+      
+      header("Location",result) must not beNone
+    }
+    "201 Create on Success" in {
       val Some(result) = routeAndCall(reg.withFormUrlEncodedBody("email" -> "bob"))
 
       status(result) must equalTo(201)
