@@ -15,7 +15,7 @@ class ApplicationSpec extends Specification {
 
   def reg = FakeRequest(POST, "/register")
 
-  def register = routeAndCall(reg.withFormUrlEncodedBody("email" -> "bob")).get
+  def register = routeAndCall(reg.withFormUrlEncodedBody("email" -> "test")).get
 
   "Registration" should {
     "Expect Form Data" in {
@@ -60,6 +60,19 @@ class ApplicationSpec extends Specification {
     }
   }
 
+  def loginWithAuthorization = {
+    val reg = register
+    val aut = authorize(reg)
+    val dev = resultToDeviceKey(reg)
+    routeAndCall(FakeRequest(GET, "/login/" + dev))
+  }
+
+  def userDataWithAuthorization = {
+    loginWithAuthorization.map { result =>
+      PropertyListParser.parse(contentAsBytes(result))
+    }
+  }
+
   "Login" should {
     "Not Found for Missing Device" in {
       val Some(result) = routeAndCall(FakeRequest(GET, "/login/abc"))
@@ -79,13 +92,17 @@ class ApplicationSpec extends Specification {
       status(result2) must equalTo(200)
     }
     "Return Content-Type application/plist on Success" in {
-      val reg = register
-      val aut = authorize(reg)
-      val dev = resultToDeviceKey(reg)
-      val Some(result) = routeAndCall(FakeRequest(GET,"/login/"+dev))
-      
-      contentType(result) must be beSome("application/plist") 
+      val Some(result) = loginWithAuthorization
+      contentType(result) must be beSome ("application/plist")
+    }
+    "Return a Plist" in {
+      userDataWithAuthorization must not beNull
     }
   }
-
+  "Login Data" should {
+    "be an NSDictionary" in {
+      val plist = userDataWithAuthorization.get
+      plist must haveClass[NSDictionary]
+    }
+  }
 }

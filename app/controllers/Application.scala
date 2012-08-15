@@ -66,12 +66,13 @@ object Application extends Controller {
     registration.get(device).map { registration =>
       if(registration.authorized){
         Logger.info("Device %s Login Success" format device)
-        Ok.withHeaders("Content-Type"->"application/plist")
+        val plistByteArray = BinaryPropertyListWriter.writeToArray(new NSDictionary())
+        Ok( plistByteArray ).withHeaders("Content-Type"->"application/plist")
       }else{
         Logger.info("Device %s Not Authorized" format device)
         Unauthorized("This Device Has Not Been Authorized")
       }
-    }.getOrElse{NotFound}
+    }.getOrElse{NotFound("")}
   }
 
   def dump = Action {
