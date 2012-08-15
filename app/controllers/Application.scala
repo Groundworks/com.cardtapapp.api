@@ -5,84 +5,74 @@ import play.api.mvc._
 
 import com.dd.plist._
 
+import java.util.UUID
+
+case class Registration(
+  email  : String,
+  device : String,
+  authcode : String,
+  var authorized : Boolean
+)
+
 object Application extends Controller {
 
-  def user(userkey: String) = Action { request =>
+  // Multiple Indexes for the Same Data //
+  val registration  = collection.mutable.Map[String,Registration]()
+  val authorization = collection.mutable.Map[String,Registration]()
 
-    Logger.info("Get User Account: %s" format userkey)
-    Logger.debug(request.headers.toSimpleMap.foldLeft("Headers:\n") { case (x, (y, z)) => x + y + ":" + z + "\n" })
-
-    if (userkey == uid) {
-      Ok(views.html.user()).withHeaders("Content-Type" -> "application/plist")
-    } else {
-      NotFound("")
-    }
-  }
-
-  val uid = "437"
-  val key = "e29"
-  val dev = "85e"
-
-  def poll(devkey: String) = Action {
-    Logger.info("Polling for Device: %s" format devkey)
-    if (confirmed) {
-      if (devkey == dev) {
-        confirmed = false
-        Redirect(routes.Application.user(uid))
-      } else {
-        NotFound("")
-      }
-    } else {
-      Forbidden("Please Confirm Device by Email")
-    }
-  }
-
-  def sendEmailConfirmation(email: String) {
-    Logger.info("Sending Email Confirmation to %s" format email)
-    Logger.info("To Confirm Please Follow the Location: %s" format routes.Application.confirm(key))
+  def sendEmailAuthorization(email:String,code:String){
+    Logger.info("Sending Authorization Code %s" format code)
   }
   
-  def scrubEmail(email: String): Option[String] = email match {
-    case "" => None
-    case email => Some(email)
-  }
-  
-  def associateNewEmail(email:String): String = {
-    Logger.info("Associating New Email %s with Key %s" format (email,dev))
-    dev
-  }
-  
-  def register = Action { request =>
+  def register = Action { implicit request =>
     request.body.asFormUrlEncoded.map { form =>
       form.get("email").map { emails =>
-        emails.headOption.map { dirtyemail =>
-          scrubEmail(dirtyemail).map { email =>
-            
-            // Success //
-            val device = associateNewEmail(email)
-            Logger.info("Register New Device: %s to User: %s" format (device, email))
-            sendEmailConfirmation(email)
-            Redirect(routes.Application.poll(dev))
-            
-          }.getOrElse{BadRequest("Not a valid email")}
-        }.getOrElse{BadRequest("No Valid Email Recieved")}
-      }.getOrElse{BadRequest("Registration must include an email") }
-    }.getOrElse{BadRequest("Registration type must be application/form-url-encoded") }
-  }
-  
-  var confirmed = false
-  def confirm(confirmKey: String) = Action { request =>
-    if (confirmKey == key) {
-      confirmed = true
-      Logger.info("Confirmed Key: %s" format confirmKey)
-      Redirect("cardtapapp+http://" + request.headers("Host") + "/poll/" + dev)
-    } else {
-      NotFound("")
+        
+        val email = emails.head
+        val uuid = UUID.randomUUID().toString()
+        val auth = UUID.randomUUID().toString()
+        
+        val reg = Registration(email,uuid,auth,false)
+        
+        registration(uuid)  = reg
+        authorization(auth) = reg
+        
+        sendEmailAuthorization(email,auth)
+        
+        Logger.info("User %s Registered Device %s with Authorization Code %s" format (email,uuid,auth))
+        
+        Created.withHeaders("Location"-> routes.Application.login(uuid).toString )
+      }.getOrElse{BadRequest("Expecting Email in Form Data")}
+    }.getOrElse{
+      BadRequest("Expecting Form Data")
     }
   }
-
-  def index = Action {
-    Redirect("http://cardtapapp.com")
+  
+  def authorize(authcode:String) = Action {
+    Logger.info("Authorizing with Code %s" format authcode)
+    authorization.get(authcode).map { registration => 
+      registration.authorized = true
+      Created.withHeaders("Location"->routes.Application.login(registration.device).toString )
+    }.getOrElse{NotFound}
   }
 
+  def login(device:String) = Action{
+    Logger.info("Attempting Device %s Log In" format device)
+    registration.get(device).map { registration =>
+      if(registration.authorized){
+        Logger.info("Device %s Login Success" format device)
+        Ok
+      }else{
+        Logger.info("Device %s Not Authorized" format device)
+        Unauthorized("This Device Has Not Been Authorized")
+      }
+    }.getOrElse{NotFound}
+  }
+
+  def dump = Action {
+    val regs = registration.foldLeft("\n")((out,next)=>out+next+"\n") + 
+               authorization.foldLeft("\n")((out,next)=>out+next+"\n")
+    Ok(regs)
+  }
+  
 }

@@ -3,11 +3,12 @@
 # ~~~~
 
 # Redirect Lost Users
-GET    /                            controllers.Application.index
 
-POST   /register                    controllers.Application.register
-GET    /confirm/*key                controllers.Application.confirm(key)
-GET    /poll/*device                controllers.Application.poll(device)
-GET    /user/*key                   controllers.Application.user(key)
+POST /register            controllers.Application.register
 
-GET    /assets/*file                controllers.Assets.at(path="/public", file)
+GET  /login/*device       controllers.Application.login(device)
+GET  /authorize/*code     controllers.Application.authorize(code)
+
+GET  /assets/*file        controllers.Assets.at(path="/public", file)
+
+GET  /dump                controllers.Application.dump
