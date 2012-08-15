@@ -78,6 +78,14 @@ class ApplicationSpec extends Specification {
       val Some(result2) = routeAndCall(FakeRequest(GET, header("Location", result).get))
       status(result2) must equalTo(200)
     }
+    "Return Content-Type application/plist on Success" in {
+      val reg = register
+      val aut = authorize(reg)
+      val dev = resultToDeviceKey(reg)
+      val Some(result) = routeAndCall(FakeRequest(GET,"/login/"+dev))
+      
+      contentType(result) must be beSome("application/plist") 
+    }
   }
 
 }
