@@ -35,31 +35,28 @@ class ApplicationSpec extends Specification {
       status(register) must equalTo(201)
     }
   }
-
+  implicit def resultToDeviceKey(result: play.api.mvc.Result): String = {
+    header("Location", result).get.split("/")(2)
+  }
+  def authorize(device: String): play.api.mvc.Result = {
+    controllers.Application.registration.get(device).map { registration =>
+      routeAndCall(FakeRequest(GET, "/authorize/" + registration.authcode)).get
+    }.get
+  }
   "Authorization" should {
     "Return 404 for unknown" in {
       val Some(result) = routeAndCall(FakeRequest(GET, "/authorize/1234"))
-
       status(result) must equalTo(404)
     }
-    "Redirect after registration" in {
-      register
-      controllers.Application.authorization.map { item =>
-        val authKey = item._1
-        val Some(result2) = routeAndCall(FakeRequest(GET, "/authorize/" + authKey))
-
-        status(result2) must beEqualTo(303)
-      } must not be empty
+    "Redirect after authorization" in {
+      val result = authorize(register)
+      status(result) must beEqualTo(303)
     }
     "Redirect to custom scheme after success" in {
-      val Some(location) = header("Location", register)
-      val device = location.split("/")(2)
-      controllers.Application.registration.get(device).map { registration =>
-        val Some(result2) = routeAndCall(FakeRequest(GET, "/authorize/" + registration.authcode))
-        val url = header("Location", result2).get
-
-        url must be equalTo ("cardtapapp+http://localhost/login/" + device)
-      } must not beNone
+      val reg = register
+      val dev = resultToDeviceKey(reg)
+      val url = header("Location", authorize(dev)).get
+      url must be equalTo ("cardtapapp+http://localhost/login/" + dev)
     }
   }
 
@@ -77,16 +74,9 @@ class ApplicationSpec extends Specification {
     }
     "Succeed After Aurhotirzation" in {
       val result = register
-      val Some(location) = header("Location", result)
-      val device = location.split("/")(2)
-      println("Getting Device Key From Location Url: %s" format device)
-      controllers.Application.registration.get(device).map { registration =>
-        val authKey = registration.authcode
-        val Some(result2) = routeAndCall(FakeRequest(GET, "/authorize/" + authKey))
-        val Some(result3) = routeAndCall(FakeRequest(GET, header("Location",result).get))
-        status(result3) must equalTo(200)
-
-      } must not be empty
+      authorize(result)
+      val Some(result2) = routeAndCall(FakeRequest(GET, header("Location", result).get))
+      status(result2) must equalTo(200)
     }
   }
 
