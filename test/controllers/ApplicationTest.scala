@@ -51,6 +51,11 @@ class ApplicationSpec extends Specification {
   }
 
   "Login" should {
+    "Not Found for Missing Device" in {
+      val Some(result) = routeAndCall(FakeRequest(GET,"/login/abc"))
+      
+      status(result) must be equalTo(404)
+    }
     "Fail without authorization" in {
       routeAndCall(FakeRequest(POST, "/register").withFormUrlEncodedBody("email" -> "bob")).map { result =>
         val redirect = header("Location", result).get
