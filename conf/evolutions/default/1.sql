@@ -3,16 +3,22 @@
 # --- !Ups
 
 CREATE TABLE account (
-    id SERIAL,
-    email   TEXT  NOT NULL,
-    buffer  bytea NOT NULL,
+    id     SERIAL,
+    email  TEXT  NOT NULL,
+    buffer BYTEA NOT NULL,
     PRIMARY KEY (id)
 );
 
 CREATE TABLE device (
-    id SERIAL,
-    account    integer references account(id),
-    devkey     TEXT  NOT NULL,
+    id      SERIAL,
+    secret  TEXT NOT NULL,
+    buffer  BYTEA NOT NULL,
+    PRIMARY KEY (id)
+);
+
+CREATE TABLE share (
+    id     SERIAL,
+    buffer BYTEA NOT NULL,
     PRIMARY KEY (id)
 );
  
@@ -20,3 +26,4 @@ CREATE TABLE device (
  
 DROP TABLE account;
 DROP TABLE device;
+DROP TABLE share;

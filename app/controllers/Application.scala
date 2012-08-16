@@ -20,18 +20,6 @@ case class Registration(
   var authorized : Boolean
 )
 
-object Registration{
-  
-}
-
-case class Card(
-  ownerPhone :String,
-  ownerName  :String,
-  ownerEmail :String,
-  imageFront :String,
-  imageRear  :String
-)
-
 object Application extends Controller {
 
   // Multiple Indexes for the Same Data //
