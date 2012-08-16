@@ -14,6 +14,29 @@ case class Registration(
   var authorized : Boolean
 )
 
+object UserDataStore {
+  
+  def getDemoUserData = {
+    val dict = new NSDictionary()
+    dict.put("Email", "demo")
+    val arry = new NSArray(5)
+    for(i <- 0 until 5){
+      val card = new NSDictionary()
+      arry.setValue(i,card)
+    }
+    dict.put("Cards", arry)
+    dict
+  }
+  def getUserData(email:String): NSDictionary = email match {
+    case "demo" => getDemoUserData
+    case _ => 
+    	val dict = new NSDictionary()
+    	dict.put("Email",email)
+    	dict.put("Cards",new NSArray())
+    dict
+  }
+}
+
 object Application extends Controller {
 
   // Multiple Indexes for the Same Data //
@@ -67,14 +90,10 @@ object Application extends Controller {
       if(registration.authorized){
         Logger.info("Device %s Login Success" format device)
         
-        // Construct User Data //
-        val dict = new NSDictionary()
-        dict.put("Email",registration.email)
-        dict.put("Cards",new NSArray())
-        val plistByteArray = BinaryPropertyListWriter.writeToArray(dict)
-        // ------------------- //
-        
+        val dict = UserDataStore.getUserData(registration.email)
+        val plistByteArray = BinaryPropertyListWriter.writeToArray(dict)        
         Ok( plistByteArray ).withHeaders("Content-Type"->"application/plist")
+        
       }else{
         Logger.info("Device %s Not Authorized" format device)
         Unauthorized("This Device Has Not Been Authorized")
