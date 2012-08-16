@@ -9,6 +9,8 @@ POST /register            controllers.Application.register
 GET  /login/*device       controllers.Application.login(device)
 GET  /authorize/*code     controllers.Application.authorize(code)
 
+POST /share               controllers.Application.share
+
 GET  /assets/*file        controllers.Assets.at(path="/public", file)
 
 GET  /dump                controllers.Application.dump

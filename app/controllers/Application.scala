@@ -1,11 +1,15 @@
 package controllers
 
-import play.api._
-import play.api.mvc._
+import anorm._ 
 
 import com.dd.plist._
 
+import play.api._
+import play.api.mvc._
+
 import java.util.UUID
+import play.api.db.DB
+import play.api.Play.current
 
 case class Registration(
   email  : String,
@@ -13,6 +17,55 @@ case class Registration(
   authcode : String,
   var authorized : Boolean
 )
+object Registration{
+  
+}
+
+case class Card(
+  ownerPhone :String,
+  ownerName  :String,
+  ownerEmail :String,
+  imageFront :String,
+  imageRear  :String
+)
+
+object Card {
+  def setCard(card:Card){
+    DB.withConnection { implicit c =>
+      SQL(
+          """INSERT INTO card (ownerPhone,ownerName,ownerEmail,imageFront,imageRear) 
+          VALUES ({ownerPhone},{ownerName},{ownerEmail},{imageFront},{imageRear})"""
+      ).on(
+        "ownerPhone" -> card.ownerPhone,
+        "ownerName"  -> card.ownerName,
+        "ownerEmail" -> card.ownerEmail,
+        "imageRear"  -> card.imageRear,
+        "imageFront" -> card.imageFront
+      ).executeInsert()
+    }
+  }
+  def getCardByEmail(email:String){
+    
+  }
+}
+
+case class Wallet(
+  account: String,
+  card: String
+)
+
+object Wallet {
+  def setWallet(share:Wallet){
+    DB.withConnection{ implicit c =>
+      SQL("""
+          INSERT INTO wallet (account,card) VALUES {account},{card}
+    	  """).on(
+    	    "account" -> share.account,
+    	    "card" -> share.card
+    	  ).executeInsert()
+    }
+  }
+}
 
 object UserDataStore {
   
@@ -43,6 +96,32 @@ object Application extends Controller {
   val registration  = collection.mutable.Map[String,Registration]()
   val authorization = collection.mutable.Map[String,Registration]()
 
+  def cardUpdate = Action{ request =>
+    request.body.asFormUrlEncoded.map { form =>
+      val ownerPhone = form.get("ownerPhone").get.head
+      val ownerName  = form.get("ownerName").get.head
+      val ownerEmail = form.get("ownerEmail").get.head
+      val imageRear  = form.get("imageRear").get.head
+      val imageFront = form.get("imageFront").get.head
+      val card = Card(ownerPhone,ownerName,ownerEmail,imageFront,imageRear)
+      Card.setCard(card)
+      Created
+    }.getOrElse(BadRequest)
+  }
+  
+  def share = Action{ request =>
+    request.body.asFormUrlEncoded.map { form => 
+      val device    = form.get("device").get.head
+      
+      val card      = form.get("card").get.head
+      val recipient = form.get("recipient").get.head
+      
+      // TODO
+      
+      NoContent
+    }.getOrElse{BadRequest}
+  }
+  
   def sendEmailAuthorization(email:String,code:String){
     Logger.info("Sending Authorization Code %s" format code)
   }

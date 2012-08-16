@@ -21,7 +21,15 @@ CREATE TABLE card (
     PRIMARY KEY (id)
 );
  
+CREATE TABLE wallet (
+    id SERIAL,
+    account integer references account,
+    card    integer references card,
+    PRIMARY KEY (id)
+);
+
 # --- !Downs
  
 DROP TABLE account;
 DROP TABLE card;
+DROP TABLE wallet;
