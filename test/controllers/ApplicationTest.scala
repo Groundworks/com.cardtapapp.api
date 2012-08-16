@@ -118,5 +118,10 @@ class ApplicationSpec extends Specification {
         nsstring.toString() must beEqualTo(email)
       } must not beNone
     }
+    "contain an array of cards" in {
+      var dict = userDataWithAuthorization(register).get.asInstanceOf[NSDictionary]
+      var cards = dict.objectForKey("Cards").asInstanceOf[NSArray]
+      cards must not beNull
+    }
   }
 }

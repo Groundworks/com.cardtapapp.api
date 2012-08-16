@@ -70,6 +70,7 @@ object Application extends Controller {
         // Construct User Data //
         val dict = new NSDictionary()
         dict.put("Email",registration.email)
+        dict.put("Cards",new NSArray())
         val plistByteArray = BinaryPropertyListWriter.writeToArray(dict)
         // ------------------- //
         
