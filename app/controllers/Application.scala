@@ -4,6 +4,8 @@ import anorm._
 
 import com.dd.plist._
 
+import com.cardtapapp.api.Main
+
 import play.api._
 import play.api.mvc._
 
@@ -17,6 +19,7 @@ case class Registration(
   authcode : String,
   var authorized : Boolean
 )
+
 object Registration{
   
 }
@@ -29,85 +32,11 @@ case class Card(
   imageRear  :String
 )
 
-object Card {
-  def setCard(card:Card){
-    DB.withConnection { implicit c =>
-      SQL(
-          """INSERT INTO card (ownerPhone,ownerName,ownerEmail,imageFront,imageRear) 
-          VALUES ({ownerPhone},{ownerName},{ownerEmail},{imageFront},{imageRear})"""
-      ).on(
-        "ownerPhone" -> card.ownerPhone,
-        "ownerName"  -> card.ownerName,
-        "ownerEmail" -> card.ownerEmail,
-        "imageRear"  -> card.imageRear,
-        "imageFront" -> card.imageFront
-      ).executeInsert()
-    }
-  }
-  def getCardByEmail(email:String){
-    
-  }
-}
-
-case class Wallet(
-  account: String,
-  card: String
-)
-
-object Wallet {
-  def setWallet(share:Wallet){
-    DB.withConnection{ implicit c =>
-      SQL("""
-          INSERT INTO wallet (account,card) VALUES {account},{card}
-    	  """).on(
-    	    "account" -> share.account,
-    	    "card" -> share.card
-    	  ).executeInsert()
-    }
-  }
-}
-
-object UserDataStore {
-  
-  def getDemoUserData = {
-    val dict = new NSDictionary()
-    dict.put("Email", "demo")
-    val arry = new NSArray(5)
-    for(i <- 0 until 5){
-      val card = new NSDictionary()
-      arry.setValue(i,card)
-    }
-    dict.put("Cards", arry)
-    dict
-  }
-  def getUserData(email:String): NSDictionary = email match {
-    case "demo" => getDemoUserData
-    case _ => 
-    	val dict = new NSDictionary()
-    	dict.put("Email",email)
-    	dict.put("Cards",new NSArray())
-    dict
-  }
-}
-
 object Application extends Controller {
 
   // Multiple Indexes for the Same Data //
   val registration  = collection.mutable.Map[String,Registration]()
   val authorization = collection.mutable.Map[String,Registration]()
-
-  def cardUpdate = Action{ request =>
-    request.body.asFormUrlEncoded.map { form =>
-      val ownerPhone = form.get("ownerPhone").get.head
-      val ownerName  = form.get("ownerName").get.head
-      val ownerEmail = form.get("ownerEmail").get.head
-      val imageRear  = form.get("imageRear").get.head
-      val imageFront = form.get("imageFront").get.head
-      val card = Card(ownerPhone,ownerName,ownerEmail,imageFront,imageRear)
-      Card.setCard(card)
-      Created
-    }.getOrElse(BadRequest)
-  }
   
   def share = Action{ request =>
     request.body.asFormUrlEncoded.map { form => 
@@ -131,6 +60,7 @@ object Application extends Controller {
       form.get("email").map { emails =>
         
         val email = emails.head
+        
         val uuid = UUID.randomUUID().toString()
         val auth = UUID.randomUUID().toString()
         
@@ -169,9 +99,12 @@ object Application extends Controller {
       if(registration.authorized){
         Logger.info("Device %s Login Success" format device)
         
-        val dict = UserDataStore.getUserData(registration.email)
-        val plistByteArray = BinaryPropertyListWriter.writeToArray(dict)        
-        Ok( plistByteArray ).withHeaders("Content-Type"->"application/plist")
+        val uuid  = UUID.randomUUID().toString()
+        val email = registration.email
+        
+        val account = Main.Account.newBuilder().setUuid(uuid).setEmail(email).build()
+        
+        Ok(account.toByteArray()).withHeaders("Content-Type"->"application/plist")
         
       }else{
         Logger.info("Device %s Not Authorized" format device)
