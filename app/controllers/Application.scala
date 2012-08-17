@@ -27,8 +27,8 @@ object Devices extends BasicTable[(String, String, Array[Byte])]("device") {
 }
 
 object Mailer {
-  def notifyOfDevice(email:String,device:Device){
-    Logger.info("Email: %s with Confirmation Code: %s" format (email,device.getSecret()))
+  def notifyOfDevice(email: String, device: Device) {
+    Logger.info("Email: %s with Confirmation Code: %s" format (email, device.getSecret()))
   }
 }
 
@@ -38,10 +38,26 @@ object DataStore {
 
   def setDevice(device: Device) {
     db withSession { implicit session: DBSession =>
+      val q = for (d <- Devices if d.device === device.getUuid()) yield d.buffer
+      q.update(device.toByteArray)
+    }
+  }
+
+  def newDevice(device: Device) {
+    db withSession { implicit session: DBSession =>
       Devices insert (device.getUuid(), device.getSecret(), device.toByteArray())
     }
   }
-  
+
+  def getDeviceByUuid(uuid: String): Option[Device] = {
+    val res = for (d <- Devices if d.device === uuid) yield d.buffer
+    db withSession { implicit session: DBSession =>
+      res.firstOption().map { bytes =>
+        Device.parseFrom(bytes)
+      }
+    }
+  }
+
   def getDeviceBySecret(secret: String): Option[Device] = {
     val res = for (d <- Devices if d.secret === secret) yield d.buffer
     db withSession { implicit session: DBSession =>
@@ -50,7 +66,7 @@ object DataStore {
       }
     }
   }
-  
+
 }
 
 object Application extends Controller {
@@ -67,22 +83,33 @@ object Application extends Controller {
           .setUuid(uuid)
           .setAuthorized(false)
           .build()
-        DataStore.setDevice(device)
-        Mailer.notifyOfDevice(email,device)
-        val redirect = "/login/" + device.getSecret()
+        DataStore.newDevice(device)
+        Mailer.notifyOfDevice(email, device)
+        val redirect = "/login/" + device.getUuid()
         Created(device.getUuid()).withHeaders("Location" -> redirect)
       }.getOrElse { BadRequest }
     }.getOrElse { BadRequest }
   }
 
-  def login(device: String) = Action {
-    DataStore.getDeviceBySecret(device).map { device =>
-      if(device.getAuthorized()){
+  def login(uuid: String) = Action {
+    DataStore.getDeviceByUuid(uuid).map { device =>
+      if (device.getAuthorized()) {
         Ok
-      }else{
+      } else {
         Unauthorized
       }
-    }.getOrElse { InternalServerError }
+    }.getOrElse { NotFound }
   }
 
+  def authorize(secret: String) = Action {
+    DataStore.getDeviceBySecret(secret).map { device =>
+      if (device.getAuthorized()) {
+        NotFound
+      } else {
+        val authdev = Device.newBuilder(device).setAuthorized(true).build()
+        DataStore.setDevice(authdev)
+        Created
+      }
+    }.getOrElse{NotFound}
+  }
 }

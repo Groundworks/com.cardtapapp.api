@@ -7,5 +7,5 @@
 POST /register            controllers.Application.register
 
 GET  /login/*device       controllers.Application.login(device)
-
+GET  /authorize/*device   controllers.Application.authorize(device)
 GET  /assets/*file        controllers.Assets.at(path="/public", file)
