@@ -26,10 +26,10 @@ object DataStore {
   def getDeviceBySecret(secret: String): Option[Device] = {
     DB.withConnection { implicit c =>
       SQL("SELECT buffer FROM device WHERE secret={secret}").on(
-        "secret" -> secret).apply().head match {
-          case Row(bytes: Array[Byte]) => Some(Device.parseFrom(bytes))
-          case _                       => None
-        }
+        "secret" -> secret)().flatMap { 
+        case Row(bytes: Array[Byte]) => Some(Device.parseFrom(bytes))
+        case _ => None
+      }.headOption
     }
   }
 }
@@ -54,7 +54,9 @@ object Application extends Controller {
   }
 
   def login(device: String) = Action {
-    Ok
+    DataStore.getDeviceBySecret(device).map{ device => 
+      Ok
+    }.getOrElse{InternalServerError}
   }
 
 }
