@@ -41,7 +41,7 @@ class ApplicationSpec extends Specification {
     header("Location", result).get.split("/")(2)
   }
   def authorize(device: String): play.api.mvc.Result = {
-    controllers.Application.registration.get(device).map { registration =>
+    Application.registration.get(device).map { registration =>
       routeAndCall(FakeRequest(GET, "/authorize/" + registration.authcode)).get
     }.get
   }
@@ -61,66 +61,4 @@ class ApplicationSpec extends Specification {
       url must be equalTo ("cardtapapp+http://localhost/login/" + dev)
     }
   }
-
-  def loginWithAuthorization(reg: play.api.mvc.Result) = {
-    val aut = authorize(reg)
-    val dev = resultToDeviceKey(reg)
-    routeAndCall(FakeRequest(GET, "/login/" + dev))
-  }
-
-  def userDataWithAuthorization(reg: play.api.mvc.Result) = {
-    loginWithAuthorization(reg).map { result =>
-      Main.Account.parseFrom(contentAsBytes(result))
-    }
-  }
-
-  "Login" should {
-    "Not Found for Missing Device" in {
-      val Some(result) = routeAndCall(FakeRequest(GET, "/login/abc"))
-
-      status(result) must be equalTo (404)
-    }
-    "Fail without authorization" in {
-      val redirect = header("Location", register).get
-      val Some(loginResult) = routeAndCall(FakeRequest(GET, redirect))
-
-      status(loginResult) must equalTo(401)
-    }
-    "Succeed After Aurhotirzation" in {
-      val result = register
-      authorize(result)
-      val Some(result2) = routeAndCall(FakeRequest(GET, header("Location", result).get))
-      status(result2) must equalTo(200)
-    }
-    "Return Content-Type application/plist on Success" in {
-      val Some(result) = loginWithAuthorization(register)
-      contentType(result) must be beSome ("application/plist")
-    }
-    "Return a protocol buffer" in {
-      userDataWithAuthorization(register).get must haveClass[Main.Account]
-    }
-  }
-  
-  "Account Data" should {
-    "Return an Account with my Email" in {
-      val Some(account) = userDataWithAuthorization(register)
-
-      account.getEmail() must be equalTo ("test")
-    }
-    "return an account with a UUID" in {
-      val uuid = userDataWithAuthorization(register).get.getUuid()
-      uuid must not be equalTo("")
-      uuid must not beNull
-    }
-    "return a list of my cards" in {
-      val cards = userDataWithAuthorization(register).get.getCardsList()
-      cards.size() must be equalTo(0)
-      cards must not beNull
-    }
-    "return a stack of cards" in {
-      val stack = userDataWithAuthorization(register).get.getStackList()
-      stack.size must equalTo(0)
-    }
-  }
-  
 }

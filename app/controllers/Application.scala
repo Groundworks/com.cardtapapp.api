@@ -4,7 +4,7 @@ import anorm._
 
 import com.dd.plist._
 
-import com.cardtapapp.api.Main
+import com.cardtapapp.api.Main._
 
 import play.api._
 import play.api.mvc._
@@ -20,11 +20,27 @@ case class Registration(
   var authorized : Boolean
 )
 
-object Application extends Controller {
+trait DataStore {
+  def getAccountByEmail(email:String):Option[Account];
+  def setAccount(account:Account);
+  def setShare(share:Share);
+  def getCardByUuid(uuid:String):Option[Card];
+  def setCard(card:Card);
+}
 
-  // Multiple Indexes for the Same Data //
+object Application extends ApplicationFramework {
+  val dataStore = null
   val registration  = collection.mutable.Map[String,Registration]()
   val authorization = collection.mutable.Map[String,Registration]()
+}
+
+trait ApplicationFramework extends Controller {
+  
+  val dataStore:DataStore
+  
+  // Multiple Indexes for the Same Data //
+  val registration: collection.mutable.Map[String,Registration]
+  val authorization: collection.mutable.Map[String,Registration]
   
   def share = Action{ request =>
     request.body.asFormUrlEncoded.map { form => 
@@ -85,14 +101,11 @@ object Application extends Controller {
     Logger.info("Attempting Device %s Log In" format device)
     registration.get(device).map { registration =>
       if(registration.authorized){
+        
         Logger.info("Device %s Login Success" format device)
-        
-        val uuid  = UUID.randomUUID().toString()
-        val email = registration.email
-        
-        val account = Main.Account.newBuilder().setUuid(uuid).setEmail(email).build()
-        
-        Ok(account.toByteArray()).withHeaders("Content-Type"->"application/plist")
+        val email   = registration.email
+        val account = dataStore.getAccountByEmail(email).get
+        Ok(account.toByteArray()).withHeaders("Content-Type"->"application/octet-stream")
         
       }else{
         Logger.info("Device %s Not Authorized" format device)
