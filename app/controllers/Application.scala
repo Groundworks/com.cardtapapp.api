@@ -13,107 +13,48 @@ import java.util.UUID
 import play.api.db.DB
 import play.api.Play.current
 
-case class Registration(
-  email: String,
-  device: String,
-  authcode: String,
-  var authorized: Boolean)
+object DataStore {
 
-trait DataStore {
-  def getAccountByEmail(email: String): Option[Account];
-  def setAccount(account: Account);
-  def setShare(share: Share);
-  def getCardByUuid(uuid: String): Option[Card];
-  def setCard(card: Card);
-  def setDevice(dev: Device);
-  def getDeviceBySecret(secret: String): Option[String];
+  def setDevice(device: Device) {
+    DB.withConnection { implicit c =>
+      SQL("INSERT INTO device (buffer,secret) VALUES ({secret},{buffer})").on(
+        "buffer" -> device.toByteArray(),
+        "secret" -> device.getSecret())
+    }
+  }
+  
+  def getDeviceBySecret(secret: String): Option[Device] = {
+    DB.withConnection { implicit c =>
+      SQL("SELECT buffer FROM device WHERE secret={secret}").on(
+        "secret" -> secret).apply().head match {
+          case Row(bytes: Array[Byte]) => Some(Device.parseFrom(bytes))
+          case _                       => None
+        }
+    }
+  }
 }
 
-object Application extends ApplicationFramework {
-  val dataStore = null
-}
+object Application extends Controller {
 
-trait ApplicationFramework extends Controller {
+  def uuid = UUID.randomUUID().toString()
 
-  val dataStore: DataStore
-
-  def share = Action { request =>
+  def register = Action { request =>
     request.body.asFormUrlEncoded.map { form =>
-      val device = form.get("device").get.head
-
-      val card = form.get("card").get.head
-      val recipient = form.get("recipient").get.head
-
-      // TODO
-
-      NoContent
+      form.get("email").map { email =>
+        val device = Device.newBuilder()
+          .setAccountid(email.head)
+          .setSecret(uuid)
+          .setUuid(uuid)
+          .setAuthorized(false)
+          .build()
+        DataStore.setDevice(device)
+        Created(device.getUuid()).withHeaders("Location" -> "/login/")
+      }.getOrElse { BadRequest }
     }.getOrElse { BadRequest }
   }
 
-  def sendEmailAuthorization(email: String, code: String) {
-    Logger.info("Sending Authorization Code %s" format code)
-  }
-
-  def register = Action { implicit request =>
-    request.body.asFormUrlEncoded.map { form =>
-      form.get("email").map { emails =>
-
-        val email = emails.head
-        val uuid = UUID.randomUUID().toString()
-        val auth = UUID.randomUUID().toString()
-        
-        val dev = Device.newBuilder()
-          .setAuthorized(false)
-          .setSecret(auth)
-          .setUuid(uuid)
-          .setAccountid(email)
-          .build()
-        
-        dataStore.setDevice(dev)
-        
-        Logger.info("User %s Registered Device %s with Authorization Code %s" format (email, uuid, auth))
-
-        Created.withHeaders("Location" -> routes.Application.login(uuid).toString)
-      }.getOrElse { BadRequest("Expecting Email in Form Data") }
-    }.getOrElse {
-      BadRequest("Expecting Form Data")
-    }
-  }
-
-  def authorize(devkey: String, authcode: String) = Action { request =>
-    Logger.info("Authorizing with Code %s" format authcode)
-    .get(authcode).map { registration =>
-      registration.authorized = true
-      val path = routes.Application.login(registration.device).toString
-      val prot = "cardtapapp+http"
-      val host = if (request.host == "") { "localhost" } else { request.host }
-      val redirect = "%s://%s%s" format (prot, host, path)
-      Logger.debug("Redirecting to %s" format redirect)
-      Redirect(redirect)
-    }.getOrElse { NotFound }
-  }
-
   def login(device: String) = Action {
-    Logger.info("Attempting Device %s Log In" format device)
-    registration.get(device).map { registration =>
-      if (registration.authorized) {
-
-        Logger.info("Device %s Login Success" format device)
-        val email = registration.email
-        val account = dataStore.getAccountByEmail(email).get
-        Ok(account.toByteArray()).withHeaders("Content-Type" -> "application/octet-stream")
-
-      } else {
-        Logger.info("Device %s Not Authorized" format device)
-        Unauthorized("This Device Has Not Been Authorized")
-      }
-    }.getOrElse { NotFound("") }
-  }
-
-  def dump = Action {
-    val regs = registration.foldLeft("\n")((out, next) => out + next + "\n") +
-      authorization.foldLeft("\n")((out, next) => out + next + "\n")
-    Ok(regs)
+    Ok
   }
 
 }
