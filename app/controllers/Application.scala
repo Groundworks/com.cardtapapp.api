@@ -77,7 +77,11 @@ object Application extends Controller {
 
   def login(device: String) = Action {
     DataStore.getDeviceBySecret(device).map { device =>
-      Ok
+      if(device.getAuthorized()){
+        Ok
+      }else{
+        Unauthorized
+      }
     }.getOrElse { InternalServerError }
   }
 
