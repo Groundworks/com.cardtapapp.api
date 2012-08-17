@@ -12,6 +12,7 @@ CREATE TABLE account (
 CREATE TABLE device (
     id      SERIAL,
     secret  TEXT NOT NULL,
+    device  TEXT NOT NULL,
     buffer  BYTEA NOT NULL,
     PRIMARY KEY (id)
 );
