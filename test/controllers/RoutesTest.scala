@@ -45,6 +45,7 @@ class ApplicationSpec extends Specification {
       routeAndCall(FakeRequest(GET, "/authorize/" + registration.authcode)).get
     }.get
   }
+  
   "Authorization" should {
     "Return 404 for unknown" in {
       val Some(result) = routeAndCall(FakeRequest(GET, "/authorize/1234"))
@@ -61,4 +62,5 @@ class ApplicationSpec extends Specification {
       url must be equalTo ("cardtapapp+http://localhost/login/" + dev)
     }
   }
+  
 }
