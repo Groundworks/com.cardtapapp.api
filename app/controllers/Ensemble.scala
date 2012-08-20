@@ -1,9 +1,12 @@
 package ensemble;
 
-import play.api._
+import play.api.Logger
 import akka.actor._
 import com.cardtapapp.api.Main._
 import utility.Random._
+import models.Database.{connection=>db}
+
+import models._
 
 // General Messages //
 
@@ -38,7 +41,6 @@ case class RedirectLogin(secret: String)
 class AccountManager extends Actor {
   def receive = {
     case Authorize(code) =>
-      // Lookup Authorizations by Code
       Logger.info("Authorizing Code: " + code)
       sender ! RedirectLogin("a123")
     case Login(secret) =>
@@ -76,6 +78,18 @@ class DeviceManager extends Actor {
   def receive = {
     case RegisterDevice(email) =>
       Logger.info("Registering New Device to Email: "+email)
+      
+      val auth = authorization(email)
+      
+      // Database //
+      val prep = db.prepareStatement("INSERT INTO device (secret,device,buffer) VALUES (?,?,?)")
+      prep.setString(1,auth.getCode())
+      prep.setString(2,auth.getDevice().getSecret())
+      prep.setBytes (3,auth.toByteArray() )
+      val pk = prep.executeUpdate()
+      Logger.debug("Insert New into Database with Primary Key: %d" format pk)
+      // -------- //
+      
       mailManager ! RegistrationConfirmation(email, authorization(email))
       sender      ! DeviceRegistration("a123")
     case any =>
