@@ -1,4 +1,4 @@
-package utility
+package controllers
 
 import java.util.{ UUID => JavaUUID }
 

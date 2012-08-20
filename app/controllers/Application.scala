@@ -74,9 +74,10 @@ object Application extends Controller {
 
   def login(secret: String) = Action {
     async(accountManager ? Login(secret)) {
-      case Success => Ok
       case account: Account =>
         Ok(account.toByteArray())
+      case AccountNotAuthorized =>
+        Unauthorized
       case _ => InternalServerError
     }
   }
