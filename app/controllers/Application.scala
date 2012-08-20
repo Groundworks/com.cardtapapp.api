@@ -1,79 +1,91 @@
 package controllers
 
 import com.cardtapapp.api.Main._
+
+import Ensemble._
+
+import akka.actor._
+import akka.pattern._
+import akka.util._
+
+import play.api.data.Forms._
+import play.api.data.Form
+
 import play.api._
-import play.api.mvc._
-import play.api.Play.current
-import play.libs.Akka.system
-import java.util.UUID
-import play.api.Play.current
 import play.api.libs.concurrent.AkkaPromise
-import akka.actor.{Actor,ActorRef,Props}
-import akka.pattern.ask
-import akka.util.Timeout
-import akka.util.Duration
+import play.api.mvc._
+
 import play.libs.Akka.system
-import play.libs.Akka
 
-case object Success
-case object Failure
+import ensemble._
 
-class MailManager extends Actor {
-  def receive = {
-    case _ => sender ! Success 
-  }
+// Ensemble //
+
+object Ensemble {
+  val accountManager = system.actorOf(Props[AccountManager])
+  val deviceManager = system.actorOf(Props[DeviceManager])
+  val shareManager = system.actorOf(Props[ShareManager])
+  val mailManager = system.actorOf(Props[MailManager])
 }
 
-class AccountManager extends Actor {
-  def receive = {
-    case _ => sender ! Success
-  }
-}
+// Controller //
 
 object Application extends Controller {
 
-  val accountManager = system.actorOf(Props[AccountManager])
-  val mailManager = system.actorOf(Props[MailManager]) 
+  import Ensemble._
 
-  def uuid = UUID.randomUUID().toString()
-  
-  implicit val timeout : Timeout = Timeout(Duration(5,"seconds"))
-  def share(secret: String) = Action { request =>
-    if (secret == "a123") {
-      request.body.asFormUrlEncoded.flatMap { form =>
-        form.get("card").flatMap { card =>
-          form.get("with").map { email =>
-            Async {
-              new AkkaPromise( mailManager ? "" ) map {
-                case _ => Ok
-              }
-            }
-          }
-        }
-      } getOrElse BadRequest
-    } else NotFound
+  implicit val timeout: Timeout = Timeout(Duration(5, "seconds"))
+  def async(_query: akka.dispatch.Future[Any])(_handler: Any => Result) = {
+    Async {
+      new AkkaPromise(_query).map { _handler }
+    }
   }
-  
-  def register = Action { request =>
-    request.body.asFormUrlEncoded.flatMap { form =>
-      form.get("email").map { emailseq =>
-        val secret = "a123"
-        val redirect = "/login/" + secret
-        Created(secret).withHeaders("Location" -> redirect)
-      }
-    } getOrElse BadRequest
+
+  val shareForm = Form(tuple(
+    "card" -> text,
+    "with" -> text))
+
+  def share(secret: String) = Action { implicit request =>
+    shareForm.bindFromRequest.fold(
+      error => BadRequest("Must Provide `card` and `with` Form Data"),
+      value => {
+        val (cardShare, cardWith) = value
+        async(shareManager ? ShareCard(cardWith, cardShare, secret)) {
+          case Failure => BadRequest
+          case Success => NoContent
+          case _       => InternalServerError
+        }
+      })
+  }
+
+  val registerForm = Form("email" -> text)
+
+  def register = Action { implicit request =>
+    registerForm.bindFromRequest.fold(
+      error => BadRequest("Must Provide `Email` Form Data"),
+      value => async(deviceManager ? RegisterDevice(value)) {
+        case Failure => BadRequest
+        case DeviceRegistration(registration) =>
+          val login = routes.Application.login(registration).toString
+          Created.withHeaders("Location" -> login)
+        case _ => InternalServerError
+      })
   }
 
   def login(secret: String) = Action {
-    if (secret == "a123") {
-      Ok
-    } else NotFound
+    async(accountManager ? Login(secret)) {
+      case Success => Ok
+      case account: Account =>
+        Ok(account.toByteArray())
+      case _ => InternalServerError
+    }
   }
 
   def auth(devcode: String) = Action {
-    val code = "zzz"
-    if (devcode == code) {
-      Ok
-    } else NotFound
+    async(accountManager ? Authorize(devcode)) {
+      case RedirectLogin(secret) =>
+        Redirect(routes.Application.login(secret))
+      case _ => InternalServerError
+    }
   }
 }
