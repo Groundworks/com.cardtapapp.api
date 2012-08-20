@@ -9,5 +9,5 @@ POST /register            controllers.Application.register
 GET  /login/*secret       controllers.Application.login(secret)
 POST /share/*secret       controllers.Application.share(secret)
 GET  /auth/*devcode       controllers.Application.auth(devcode)
-
+POST /card/*devcode       controllers.Application.card(devcode)
 GET  /assets/*file        controllers.Assets.at(path="/public", file)

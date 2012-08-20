@@ -14,7 +14,14 @@ CREATE TABLE device (
     authcode TEXT NOT NULL,
     device   TEXT NOT NULL,
     buffer   BYTEA NOT NULL,
-    PRIMARY  KEY (id)
+    PRIMARY KEY (id)
+);
+
+CREATE TABLE card (
+    id       SERIAL,
+    uuid     TEXT NOT NULL,
+    buffer   BYTEA NOT NULL,
+    PRIMARY KEY (id)
 );
 
 CREATE TABLE share (
@@ -28,3 +35,4 @@ CREATE TABLE share (
 DROP TABLE account;
 DROP TABLE device;
 DROP TABLE share;
+DROP TABLE card;

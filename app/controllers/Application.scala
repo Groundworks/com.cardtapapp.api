@@ -26,6 +26,7 @@ object Ensemble {
   val deviceManager = system.actorOf(Props[DeviceManager])
   val shareManager = system.actorOf(Props[ShareManager])
   val mailManager = system.actorOf(Props[MailManager])
+  val cardManager = system.actorOf(Props[CardManager])
 }
 
 // Controller //
@@ -41,6 +42,19 @@ object Application extends Controller {
     }
   }
 
+  val cardForm = Form(tuple("face" -> text, "rear" -> text))
+  def card(secret: String) = Action { implicit request =>
+    cardForm.bindFromRequest.fold(
+      error => BadRequest, 
+      value => {
+        val (face, rear) = value
+        async(cardManager ? AddCard(face,rear)){
+          case card:Card => Ok(card.toByteArray())
+          case _ => InternalServerError
+        }
+      })
+  }
+  
   val shareForm = Form(tuple(
     "card" -> text,
     "with" -> text))

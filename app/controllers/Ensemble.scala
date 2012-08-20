@@ -1,4 +1,4 @@
-package ensemble;
+package ensemble
 
 import play.api.Logger
 import akka.actor._
@@ -18,6 +18,8 @@ case class ShareNotification(email: String, card: Card)
 
 class MailManager extends Actor {
   def receive = {
+    case ShareNotification(email, card) =>
+      Logger.info("Share Card with Email: %s" format email)
     case RegistrationConfirmation(auth) =>
       Logger.info("Register Device %s to %s" format (
         auth.getDevice().getSecret(), auth.getEmail()))
@@ -151,6 +153,41 @@ class AccountManager extends Actor {
   }
 }
 
+// Cards //
+
+case class AddCard(face: String, rear: String)
+
+class CardManager extends Actor {
+  def receive = {
+    case AddCard(face, rear) =>
+      {
+        val _uuid = uuid
+        val card = Card.newBuilder()
+          .setUuid(_uuid)
+          .setImageFace(face)
+          .setImageRear(rear)
+          .build()
+        val stmt = db.prepareStatement("INSERT INTO card (uuid,buffer) VALUES (?,?)")
+        stmt.setString(1, _uuid)
+        stmt.setBytes(2,
+          card.toByteArray())
+        val rslt = stmt.executeUpdate()
+        if (rslt > 0) {
+          Logger.info("New Card Inserted at %s" format _uuid)
+          Some(card)
+        } else {
+          None
+        }
+      }.map { card =>
+        sender ! card
+      } getOrElse {
+        Logger.warn("New Card Could Not be Inserted Into Database")
+        sender ! Failure 
+      }
+    case _ => sender ! Failure
+  }
+}
+
 // Devices //
 case class GetDevice(secret: String)
 case class RegisterDevice(email: String)
@@ -218,12 +255,12 @@ class ShareManager extends Actor {
       val prep = db.prepareStatement("SELECT buffer FROM device WHERE device=?")
       prep.setString(1, secret)
       Logger.debug(prep.toString())
-      
+
       val rslt = prep.executeQuery()
       if (rslt.next()) {
         val auth = Authorization.parseFrom(rslt.getBytes(1))
         val access = auth.getAccess()
-        
+
         Logger.debug("Access: %s" format access)
         if (access equals AUTH_VALIDATED) {
           val email = auth.getEmail()
@@ -234,15 +271,41 @@ class ShareManager extends Actor {
 
           if (rslt2.next()) {
 
-            val share = Share.newBuilder().setCard(cardShare).setWith(cardWith).setFrom(email).build()
-            val stmt2 = db.prepareStatement("INSERT INTO share (buffer) VALUES (?)")
-            stmt2.setBytes(1, share.toByteArray())
-            Logger.debug(stmt2.toString())
-            stmt2.executeUpdate() // possible unhandled error
+            // Fetch Card //
+            {
+              val stmt = db.prepareStatement("SELECT buffer FROM card WHERE uuid=?")
+              stmt.setString(1, cardShare)
+              val rslt = stmt.executeQuery()
+              if (rslt.next()) {
+                val buffer = rslt.getBytes(1)
+                try {
+                  Some(Card.parseFrom(buffer))
+                } catch {
+                  case e: com.google.protobuf.InvalidProtocolBufferException =>
+                    None
+                  case _ =>
+                    Logger.error("Unhandled Exception During Card Protobuf Deserialization")
+                    None
+                }
+              } else {
+                None
+              }
+            } map { card =>
 
-            Logger.debug(stmt2.toString())
-            Logger.info("New Care Shared to Email: " + cardWith)
-            sender ! Success
+              val share = Share.newBuilder().setCard(cardShare).setWith(cardWith).setFrom(email).build()
+              val stmt2 = db.prepareStatement("INSERT INTO share (buffer) VALUES (?)")
+              stmt2.setBytes(1, share.toByteArray())
+              Logger.debug(stmt2.toString())
+              stmt2.executeUpdate() // possible unhandled error
+
+              Logger.debug(stmt2.toString())
+              Logger.info("New Care Shared to Email: " + cardWith)
+              sender ! Success
+
+            } getOrElse {
+              Logger.warn("Shared Card Does Not Exist in Database")
+              sender ! Failure
+            }
           } else {
             Logger.warn("Sharing Account Not Found")
             sender ! AccountNotFound
