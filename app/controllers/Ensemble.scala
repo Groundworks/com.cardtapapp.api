@@ -40,11 +40,14 @@ case class RegisterAccount(email: String)
 case object AccountNotAuthorized
 case object AccountNotFound
 
-class AccountManager extends Actor {
-  
+object AccountManager {
   val AUTH_VALIDATED = "VALIDATED"
-  val AUTH_PENDING   = "PENDING" 
-  
+  val AUTH_PENDING = "PENDING"
+}
+class AccountManager extends Actor {
+
+  import AccountManager._
+
   def receive = {
 
     case RegisterAccount(email) =>
@@ -77,19 +80,20 @@ class AccountManager extends Actor {
 
       // Results //
       if (rslt.next()) {
-    	
+
         val buffer = rslt.getBytes(1)
         val authzn = Authorization.parseFrom(buffer)
         val device = authzn.getDevice()
-        
+
         // Device is authorized - Insert into Database
         val authok = Authorization.newBuilder(authzn).setAccess(AUTH_VALIDATED).build()
+
         val stmt = db.prepareStatement("UPDATE device SET buffer=? WHERE authcode=?")
         stmt.setBytes(1, authok.toByteArray())
         stmt.setString(2, code)
         Logger.debug(stmt.toString())
         val rtn = stmt.executeUpdate()
-        Logger.debug("Update Device Affected %d Rows in Database" format rtn)
+        Logger.debug("executeUpdate() = %d" format rtn)
 
         val loc = device.getSecret()
         Logger.info("Authorizing Code: " + code)
@@ -113,8 +117,8 @@ class AccountManager extends Actor {
         val buffer = rslt.getBytes(1)
         val authzn = Authorization.parseFrom(buffer)
 
-        Logger.debug("Authorization Status: %s" format authzn.getAccess())
         if (authzn.getAccess() equals AUTH_VALIDATED) {
+
           val email = authzn.getEmail()
           val stmt2 = db.prepareStatement("SELECT buffer FROM account WHERE email=?")
 
@@ -124,11 +128,14 @@ class AccountManager extends Actor {
           val rslt2 = stmt2.executeQuery()
 
           if (rslt2.next()) {
+
+            // Return Account Protobuf //
             val account = Account.parseFrom(rslt2.getBytes(1))
             sender ! account
+
           } else {
             Logger.warn("Account %s Not Found in Database" format email)
-            sender ! Failure
+            sender ! AccountNotFound
           }
         } else {
           Logger.info("Login Fail - Device %s Not Yet Authorized" format secret)
@@ -136,7 +143,7 @@ class AccountManager extends Actor {
         }
       } else {
         Logger.warn("Device %s Not Found in Database" format secret)
-        sender ! Failure
+        sender ! AccountNotFound
       }
     case any =>
       Logger.warn("Unknown Message Received by Account Manager: " + any)
@@ -149,20 +156,25 @@ case class GetDevice(secret: String)
 case class RegisterDevice(email: String)
 case class DeviceRegistration(secret: String)
 
+case object DeviceNotRegistered
+case object DeviceNotAuthorized
+
 class DeviceManager extends Actor {
 
   import controllers.Ensemble._
 
+  def secret = uuid.substring(0, 4)
+
   def device = Device
     .newBuilder()
     .setUuid(uuid)
-    .setSecret(uuid)
+    .setSecret(secret)
     .build()
 
   def authorization(email: String) = Authorization
     .newBuilder()
     .setUuid(uuid)
-    .setCode(uuid)
+    .setCode(secret)
     .setDevice(device)
     .setEmail(email)
     .build()
@@ -197,10 +209,52 @@ class DeviceManager extends Actor {
 case class ShareCard(email: String, card: String, secret: String)
 
 class ShareManager extends Actor {
+  import AccountManager._
+
   def receive = {
-    case ShareCard(cardWith, cardShare, "a123") =>
-      Logger.info("New Care Shared to Email: " + cardWith)
-      sender ! Success
+    case ShareCard(cardWith, cardShare, secret) =>
+
+      // Database //
+      val prep = db.prepareStatement("SELECT buffer FROM device WHERE device=?")
+      prep.setString(1, secret)
+      Logger.debug(prep.toString())
+      
+      val rslt = prep.executeQuery()
+      if (rslt.next()) {
+        val auth = Authorization.parseFrom(rslt.getBytes(1))
+        val access = auth.getAccess()
+        
+        Logger.debug("Access: %s" format access)
+        if (access equals AUTH_VALIDATED) {
+          val email = auth.getEmail()
+          val stmt = db.prepareStatement("SELECT buffer FROM account WHERE email=?")
+          stmt.setString(1, email)
+          Logger.debug(stmt.toString())
+          val rslt2 = stmt.executeQuery()
+
+          if (rslt2.next()) {
+
+            val share = Share.newBuilder().setCard(cardShare).setWith(cardWith).setFrom(email).build()
+            val stmt2 = db.prepareStatement("INSERT INTO share (buffer) VALUES (?)")
+            stmt2.setBytes(1, share.toByteArray())
+            Logger.debug(stmt2.toString())
+            stmt2.executeUpdate() // possible unhandled error
+
+            Logger.debug(stmt2.toString())
+            Logger.info("New Care Shared to Email: " + cardWith)
+            sender ! Success
+          } else {
+            Logger.warn("Sharing Account Not Found")
+            sender ! AccountNotFound
+          }
+        } else {
+          Logger.warn("Device Not Authorized")
+          sender ! DeviceNotAuthorized
+        }
+      } else {
+        Logger.warn("Device Not Registered")
+        sender ! DeviceNotRegistered
+      }
     case any =>
       Logger.warn("Unknown Message Received by Share Manager: " + any)
       sender ! Failure

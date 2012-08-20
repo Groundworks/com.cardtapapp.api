@@ -5,6 +5,6 @@ import java.sql._
 object Database {
   
   val connectionString = "jdbc:postgresql://localhost/demo"
-  val connection: Connection = DriverManager.getConnection(connectionString)
-
+  lazy val connection: Connection = DriverManager.getConnection(connectionString)
+  
 }

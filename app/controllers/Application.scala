@@ -51,9 +51,11 @@ object Application extends Controller {
       value => {
         val (cardShare, cardWith) = value
         async(shareManager ? ShareCard(cardWith, cardShare, secret)) {
-          case Failure => BadRequest
-          case Success => NoContent
-          case _       => InternalServerError
+          case AccountNotFound     => NotFound("Account Error")
+          case DeviceNotRegistered => NotFound("Device Error")
+          case DeviceNotAuthorized => Unauthorized
+          case Success             => NoContent
+          case _                   => InternalServerError
         }
       })
   }
@@ -78,6 +80,8 @@ object Application extends Controller {
         Ok(account.toByteArray())
       case AccountNotAuthorized =>
         Unauthorized
+      case AccountNotFound =>
+        NotFound
       case _ => InternalServerError
     }
   }
@@ -86,7 +90,10 @@ object Application extends Controller {
     async(accountManager ? Authorize(devcode)) {
       case RedirectLogin(secret) =>
         Redirect(routes.Application.login(secret))
+      case Failure =>
+        NotFound
       case _ => InternalServerError
     }
   }
 }
+
