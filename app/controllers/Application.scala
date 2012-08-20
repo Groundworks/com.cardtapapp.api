@@ -1,23 +1,19 @@
 package controllers
 
 import com.cardtapapp.api.Main._
-
 import Ensemble._
-
 import akka.actor._
 import akka.pattern._
 import akka.util._
-
 import play.api.data.Forms._
 import play.api.data.Form
-
 import play.api._
 import play.api.libs.concurrent.AkkaPromise
 import play.api.mvc._
-
 import play.libs.Akka.system
-
 import ensemble._
+import com.googlecode.protobuf.format.XmlFormat
+import com.googlecode.protobuf.format.JsonFormat
 
 // Ensemble //
 
@@ -48,8 +44,13 @@ object Application extends Controller {
       error => BadRequest, 
       value => {
         val (face, rear) = value
-        async(cardManager ? AddCard(face,rear)){
-          case card:Card => Ok(card.toByteArray())
+        val card = Card.newBuilder()
+        	.setUuid(java.util.UUID.randomUUID().toString)
+        	.setImageFace(face)
+        	.setImageRear(rear)
+        	.build()
+        async(accountManager ? AddCardToAccount(secret,card)){
+          case Success => Ok(card.toByteArray())
           case _ => InternalServerError
         }
       })
@@ -91,7 +92,8 @@ object Application extends Controller {
   def login(secret: String) = Action {
     async(accountManager ? Login(secret)) {
       case account: Account =>
-        Ok(account.toByteArray())
+        val body = JsonFormat.printToString(account)
+        Ok(body)
       case AccountNotAuthorized =>
         Unauthorized
       case AccountNotFound =>

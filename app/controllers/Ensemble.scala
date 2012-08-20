@@ -38,6 +38,7 @@ case class Login(secret: String)
 case class Authorize(code: String)
 case class RedirectLogin(secret: String)
 case class RegisterAccount(email: String)
+case class AddCardToAccount(email: String, card: Card)
 
 case object AccountNotAuthorized
 case object AccountNotFound
@@ -51,6 +52,48 @@ class AccountManager extends Actor {
   import AccountManager._
 
   def receive = {
+    case AddCardToAccount(secret, card) =>
+      {
+        val stmt = db.prepareStatement("SELECT buffer FROM device WHERE device=?")
+        stmt.setString(1, secret)
+        Logger.debug(stmt.toString)
+        val rslt = stmt.executeQuery()
+        if(rslt.next()){
+          val buffer = rslt.getBytes(1)
+          val device = Authorization.parseFrom(buffer)
+          Some(device.getEmail())
+        }else{
+          Logger.warn("Cannot Find Device (%s) in Add Card to Account" format secret)
+          None
+        }
+      } flatMap { email =>
+        val stmt = db.prepareStatement("SELECT buffer FROM account WHERE email=?")
+        stmt.setString(1, email)
+        Logger.debug(stmt.toString)
+        val rslt = stmt.executeQuery()
+        if (rslt.next()) {
+          val buffer = rslt.getBytes(1)
+          val account = Account.parseFrom(buffer)
+          Some((account,email))
+        } else {
+          Logger.warn("Cannot Find Account (%s) in Add Card to Account" format email)
+          None
+        }
+      } map { x =>
+        val (account,email) = x
+        val cardStackOld  = account.getStack()
+        val cardStackNew_ = Stack.newBuilder(cardStackOld).addCards(card).build()
+
+        val accountNew = Account.newBuilder(account).setStack(cardStackNew_).build()
+
+        val stmt = db.prepareStatement("UPDATE account SET buffer=? WHERE email=?")
+        stmt.setBytes(1, accountNew.toByteArray())
+        stmt.setString(2, email)
+        Logger.debug(stmt.toString)
+        stmt.executeUpdate()
+        
+        sender ! Success
+      } getOrElse sender ! Failure
 
     case RegisterAccount(email) =>
       val stmt = db.prepareStatement("SELECT COUNT(id) FROM account WHERE email=?")
@@ -182,7 +225,7 @@ class CardManager extends Actor {
         sender ! card
       } getOrElse {
         Logger.warn("New Card Could Not be Inserted Into Database")
-        sender ! Failure 
+        sender ! Failure
       }
     case _ => sender ! Failure
   }
