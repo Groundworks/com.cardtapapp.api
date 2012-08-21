@@ -100,7 +100,9 @@ class AccountManager extends Actor {
   implicit val timeout: Timeout = Timeout(Duration(5, "seconds"))
 
   def receive = {
-
+    case GetAccount(email) =>
+      sender ! getAccountByEmail(email)
+      
     case AddCardToAccount(email, card) =>
       val account = {
         getAccountByEmail(email)
@@ -196,6 +198,12 @@ class DeviceManager extends Actor {
     }
   }
 
+  def isValid(auth: Authorization) = {
+    auth.getAccess() equals AccountManager.AUTH_VALIDATED
+  }
+  
+  implicit val timeout: Timeout = Timeout(Duration(5, "seconds"))
+
   def receive = {
 
     case GetRegisteredEmail(secret: String) =>
@@ -262,43 +270,25 @@ class DeviceManager extends Actor {
       Logger.info("Attempt Log In with Secret: " + secret)
 
       // Database //
-      val stmt = db.prepareStatement("SELECT buffer FROM device WHERE device=?")
-      stmt.setString(1, secret)
-      Logger.debug(stmt.toString())
 
-      val rslt = stmt.executeQuery()
-      if (rslt.next()) {
-        val buffer = rslt.getBytes(1)
-        val authzn = Authorization.parseFrom(buffer)
-
-        if (authzn.getAccess() equals AccountManager.AUTH_VALIDATED) {
-
+      getAuthorizationFromSecret(secret) map { authzn =>
+        var s = sender
+        
+        if (isValid(authzn)) {
+          
           val email = authzn.getEmail()
-          val stmt2 = db.prepareStatement("SELECT buffer FROM account WHERE email=?")
-
-          stmt2.setString(1, email)
-          Logger.debug(stmt2.toString())
-
-          val rslt2 = stmt2.executeQuery()
-
-          if (rslt2.next()) {
-
-            // Return Account Protobuf //
-            val account = Account.parseFrom(rslt2.getBytes(1))
-            sender ! account
-
-          } else {
-            Logger.warn("Account %s Not Found in Database" format email)
-            sender ! AccountNotFound
+          
+          accountManager ? GetAccount(email) map { 
+            case Some(account:Account) => s ! account
+            case _ => s ! Failure
           }
+          
         } else {
           Logger.info("Login Fail - Device %s Not Yet Authorized" format secret)
-          sender ! AccountNotAuthorized
+          s ! AccountNotAuthorized
         }
-      } else {
-        Logger.warn("Device %s Not Found in Database" format secret)
-        sender ! AccountNotFound
-      }
+        
+      } getOrElse { sender ! Failure }
 
     case any =>
       Logger.warn("Unknown Message Received by Device Manager: " + any)
