@@ -210,6 +210,17 @@ class DeviceManager extends Actor {
     }
   }
 
+  def newAuthorizationFromEmail(email: String) = {
+    val auth = authorization(email)
+    val prep = db.prepareStatement("INSERT INTO device (authcode,device,buffer) VALUES (?,?,?)")
+    prep.setString(1, auth.getCode())
+    prep.setString(2, auth.getDevice().getSecret())
+    prep.setBytes(3, auth.toByteArray())
+    Logger.debug(prep.toString())
+    prep.executeUpdate() // Unchecked
+    auth
+  }
+
   implicit val timeout: Timeout = Timeout(Duration(5, "seconds"))
 
   def receive = {
@@ -223,22 +234,13 @@ class DeviceManager extends Actor {
 
     case RegisterDevice(email) =>
       Logger.info("Registering New Device to Email: " + email)
+      
+      val auth = newAuthorizationFromEmail(email)
+      
       accountManager ! EnsureAccount(email)
-
-      val auth = authorization(email)
-
-      // Database //
-      val prep = db.prepareStatement("INSERT INTO device (authcode,device,buffer) VALUES (?,?,?)")
-      prep.setString(1, auth.getCode())
-      prep.setString(2, auth.getDevice().getSecret())
-      prep.setBytes(3, auth.toByteArray())
-      Logger.debug(prep.toString())
-      val pk = prep.executeUpdate()
-      // -------- //
-
-      mailManager ! RegistrationConfirmation(auth)
-      sender ! DeviceRegistration(auth.getDevice().getSecret())
-
+      mailManager    ! RegistrationConfirmation(auth)
+      sender         ! DeviceRegistration(auth.getDevice().getSecret())
+      
     case Authorize(code) =>
 
       // Database //
@@ -277,7 +279,7 @@ class DeviceManager extends Actor {
       Logger.info("Attempt Log In with Secret: " + secret)
       getAuthorizationFromSecret(secret) map { authzn =>
         var s = sender // avoid closure over actor internals
-        
+
         validateEmail(authzn) map { email =>
           accountManager ? GetAccount(email) map {
             case Some(account: Account) => s ! account
@@ -287,7 +289,7 @@ class DeviceManager extends Actor {
           Logger.info("Login Fail - Device %s Not Yet Authorized" format secret)
           s ! AccountNotAuthorized
         }
-        
+
       } getOrElse { sender ! Failure }
 
     case any =>
