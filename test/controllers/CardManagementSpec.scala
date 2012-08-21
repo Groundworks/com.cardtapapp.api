@@ -13,6 +13,9 @@ class ManagementSpec extends FeatureSpec {
 
   import api.Web._
 
+  def addCard(secret: String, face: String, rear:String ){
+    post("/card/" + secret)("face" -> face, "rear" -> rear)
+  }
   def addCard(secret: String, card: Card) {
     Http(url(host + "/card/" + secret)
       .setHeader("Content-Type", "application/x-protobuf")
@@ -26,9 +29,8 @@ class ManagementSpec extends FeatureSpec {
 
       val secret = device("test")
       val stack0 = account(secret).getStack()
-
       val count0 = account(secret).getStack().getCardsCount()
-      post("/card/" + secret)("face" -> "1.png", "rear" -> "2.png")
+      addCard(secret,"face.png","rear.png")
       val count1 = account(secret).getStack().getCardsCount()
       count1 should equal(count0 + 1)
 
@@ -48,7 +50,7 @@ class ManagementSpec extends FeatureSpec {
 
       val card = Card
         .newBuilder()
-        .setUuid(java.util.UUID.randomUUID().toString)
+        .setUuid(java.util.UUID.randomUUID().toString) // Unique or test will fail
         .build()
 
       addCard(secret, card)
