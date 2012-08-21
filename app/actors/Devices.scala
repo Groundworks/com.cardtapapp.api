@@ -49,6 +49,14 @@ class DeviceManager extends Actor {
   
   def receive = {
 
+    case GetDevice(secret) =>
+      getAuthorizationFromSecret(secret) map { auth=>
+        sender ! auth
+      } getOrElse{
+        Logger.warn("Device Could Not be Found from Secret: " + secret)
+        sender ! Failure
+      }
+    
     case GetAuthorizationCodeFromSecret(secret: String) =>
       getAuthorizationFromSecret(secret) map { auth =>
         sender ! auth.getCode()
