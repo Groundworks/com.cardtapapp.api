@@ -8,7 +8,6 @@ import models.Database.{ connection => db }
 import controllers.Random._
 import akka.util.Timeout
 import akka.util.Duration
-import controllers.Ensemble._
 
 // Share //
 
@@ -20,7 +19,10 @@ class ShareManager extends Actor {
   
   implicit val timeout: Timeout = Timeout(Duration(5, "seconds"))
 
+  val accountManager = context.actorFor("../accounts")
+  
   def receive = {
+    
     case ShareCard(shareWith, card, secret) =>
 
       // Database //

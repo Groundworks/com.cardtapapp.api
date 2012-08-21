@@ -1,7 +1,6 @@
 package controllers
 
 import com.cardtapapp.api.Main._
-import Ensemble._
 import akka.actor._
 import akka.pattern._
 import akka.util._
@@ -15,22 +14,23 @@ import actors._
 import com.googlecode.protobuf.format.XmlFormat
 import com.googlecode.protobuf.format.JsonFormat
 
-// Ensemble //
-
-object Ensemble {
-  val accountManager = system.actorOf(Props[AccountManager])
-  val deviceManager = system.actorOf(Props[DeviceManager])
-  val shareManager = system.actorOf(Props[ShareManager])
-  val mailManager = system.actorOf(Props[MailManager])
-  val cardManager = system.actorOf(Props[CardManager])
-}
-
 // Controller //
 
 object Application extends Controller {
 
-  import Ensemble._
-
+  val director = system.actorOf(Props[Director],"main")
+  
+  {
+    director ! Start
+    Logger.debug("Director Has Path: %s" format director.path)
+  }
+  
+  def deviceManager  = system.actorFor("user/main/devices")
+  def accountManager = system.actorFor("user/main/accounts")
+  def shareManager   = system.actorFor("user/main/shares")
+  
+  Logger.debug("Device Manager Reference at Path: %s" format deviceManager.path)
+  
   implicit val timeout: Timeout = Timeout(Duration(5, "seconds"))
   def async(_query: akka.dispatch.Future[Any])(_handler: Any => Result) = {
     Async {

@@ -8,7 +8,6 @@ import models.Database.{ connection => db }
 import controllers.Random._
 import akka.util.Timeout
 import akka.util.Duration
-import controllers.Ensemble._
 
 // Devices //
 
@@ -40,6 +39,11 @@ class DeviceManager extends Actor {
   implicit val timeout: Timeout = Timeout(Duration(5, "seconds"))
 
   import models.DevicesModel._
+  
+  val accountManager = context.actorFor("../accounts")
+  val mailManager    = context.actorFor("../mailer")
+  
+  Logger.debug("Device Manager ActorRef to AccountManager has Path: %s" format accountManager.path)
   
   def receive = {
     
