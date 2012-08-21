@@ -11,17 +11,20 @@ import akka.util.Duration
 // Devices //
 
 case class GetDevice(secret: String)
-case class RegisterDevice(email: String)
+case class RegisterNewDevice(email: String)
 case class DeviceRegistration(secret: String)
 case class GetRegisteredEmail(secret: String)
 case class GetAuthorizationCodeFromSecret(secret: String)
+case class LoginWithDeviceSecret(secret: String)
+case class AuthorizeRegisteredDevice(code: String)
 
 case object DeviceNotRegistered
 case object DeviceNotAuthorized
 
 class DeviceManager extends Actor {
-
-  import models.AuthorizationAccesses._
+  
+  val AUTH_VALIDATED = "VALIDATED"
+  val AUTH_PENDING = "PENDING"
 
   def isValid(auth: Authorization) = {
     auth.getAccess() equals AUTH_VALIDATED
@@ -37,13 +40,13 @@ class DeviceManager extends Actor {
 
   implicit val timeout: Timeout = Timeout(Duration(5, "seconds"))
 
-  import models.DevicesModel._
-
   val accountManager = context.actorFor("../accounts")
-  val mailManager = context.actorFor("../mailer")
+  val mailersManager = context.actorFor("../mailer")
 
   Logger.debug("Device Manager ActorRef to AccountManager has Path: %s" format accountManager.path)
 
+  import models.DevicesModel._
+  
   def receive = {
 
     case GetAuthorizationCodeFromSecret(secret: String) =>
@@ -52,48 +55,41 @@ class DeviceManager extends Actor {
       }
 
     case GetRegisteredEmail(secret: String) =>
+      Logger.debug("Get Registered Email from Secret: %s" format secret)
       getAuthorizationFromSecret(secret) map { auth =>
         sender ! auth.getEmail()
       } getOrElse {
         sender ! None
       }
 
-    case RegisterDevice(email) =>
-      Logger.info("Registering New Device to Email: " + email)
-
+    case RegisterNewDevice(email) =>
+      Logger.debug("Registering New Device to Email: " + email)
       val auth = newAuthorizationFromEmail(email)
-
-      accountManager ! EnsureAccount(email)
-      mailManager ! RegistrationConfirmation(auth)
+      accountManager ! EnsureAccountExists(email)
+      mailersManager ! RegistrationConfirmation(auth)
       sender ! DeviceRegistration(auth.getDevice().getSecret())
 
-    case Authorize(code) =>
-
+    case AuthorizeRegisteredDevice(code) =>
+      Logger.debug("Authorizing Device with Code: " + code)
       getAuthorizationFromCode(code) map { authzn =>
-      	
-        // Authorize Registered Device //
-        
         val authok = Authorization.newBuilder(authzn).setAccess(AUTH_VALIDATED).build()
         setAuthorizationFromCode(code, authok)
-
         sender ! RedirectLogin(device.getSecret())
-
       } getOrElse {
         sender ! Failure
       }
 
-    case Login(secret) =>
-      Logger.info("Attempt Log In with Secret: " + secret)
+    case LoginWithDeviceSecret(secret) =>
+      Logger.debug("Log In with Device Secret: " + secret)
       getAuthorizationFromSecret(secret) map { authzn =>
         var s = sender // avoid closure over actor internals
-
         validateEmail(authzn) map { email =>
           accountManager ? GetAccount(email) map {
             case Some(account: Account) => s ! account
             case _                      => s ! Failure
           }
         } getOrElse {
-          Logger.info("Login Fail - Device %s Not Yet Authorized" format secret)
+          Logger.warn("Login Fail - Device %s Not Yet Authorized" format secret)
           s ! AccountNotAuthorized
         }
 

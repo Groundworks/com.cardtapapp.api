@@ -14,9 +14,7 @@ import akka.util.Duration
 case class ShareCard(email: String, card: Card, secret: String)
 
 class ShareManager extends Actor {
-  
-  import models.AuthorizationAccesses._
-  
+    
   implicit val timeout: Timeout = Timeout(Duration(5, "seconds"))
 
   val accountManager = context.actorFor("../accounts")
@@ -36,7 +34,7 @@ class ShareManager extends Actor {
         val access = auth.getAccess()
 
         Logger.debug("Access: %s" format access)
-        if (access equals AUTH_VALIDATED) {
+        if (access equals "VALIDATED") {
           val email = auth.getEmail()
           val stmt = db.prepareStatement("SELECT buffer FROM account WHERE email=?")
           stmt.setString(1, email)

@@ -85,7 +85,7 @@ object Application extends Controller {
   def register = Action { implicit request =>
     registerForm.bindFromRequest.fold(
       error => BadRequest("Must Provide `Email` Form Data"),
-      value => async(deviceManager ? RegisterDevice(value)) {
+      value => async(deviceManager ? RegisterNewDevice(value)) {
         case Failure => BadRequest
         case DeviceRegistration(registration) =>
           val login = routes.Application.login(registration).toString
@@ -95,7 +95,7 @@ object Application extends Controller {
   }
 
   def login(secret: String) = Action {
-    async(deviceManager ? Login(secret)) {
+    async(deviceManager ? LoginWithDeviceSecret(secret)) {
       case account: Account =>
         Ok(account.toByteArray())
       case AccountNotAuthorized =>
@@ -107,7 +107,7 @@ object Application extends Controller {
   }
 
   def auth(devcode: String) = Action {
-    async(deviceManager ? Authorize(devcode)) {
+    async(deviceManager ? AuthorizeRegisteredDevice(devcode)) {
       case RedirectLogin(secret) =>
         Redirect(routes.Application.login(secret))
       case Failure =>

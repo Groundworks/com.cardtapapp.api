@@ -12,10 +12,8 @@ import controllers.Random._
 
 case class GetAccount(email: String)
 case class SetAccount(account: Account)
-case class Login(secret: String)
-case class Authorize(code: String)
 case class RedirectLogin(secret: String)
-case class EnsureAccount(email: String)
+case class EnsureAccountExists(email: String)
 case class AddCardToAccount(email: String, card: Card)
 
 case object AccountNotAuthorized
@@ -32,6 +30,7 @@ class AccountManager extends Actor {
       sender ! getAccountByEmail(email)
 
     case AddCardToAccount(email, card) =>
+      
       val account = {
         getAccountByEmail(email)
       }.getOrElse {
@@ -39,14 +38,14 @@ class AccountManager extends Actor {
       }
 
       val cardStackOld = account.getStack()
-      val cardStackNew_ = Stack.newBuilder(cardStackOld).addCards(card).build()
-      val accountNew = Account.newBuilder(account).setStack(cardStackNew_).build()
+      val cardStackNew = Stack.newBuilder(cardStackOld).addCards(card).build()
+      val accountNew = Account.newBuilder(account).setStack(cardStackNew).build()
 
       setAccountByEmail(email, accountNew)
 
       sender ! Success
 
-    case EnsureAccount(email) =>
+    case EnsureAccountExists(email) =>
       if (!accountExists(email)) {
         newAccountWithEmail(email)
       }

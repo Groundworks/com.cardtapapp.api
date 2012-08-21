@@ -5,11 +5,6 @@ import com.cardtapapp.api.Main._
 import models.Database.{ connection => db }
 import play.api.Logger
 
-object AuthorizationAccesses {
-  val AUTH_VALIDATED = "VALIDATED"
-  val AUTH_PENDING = "PENDING"
-}
-
 object DevicesModel {
 
   def secret = uuid.substring(0, 4)
