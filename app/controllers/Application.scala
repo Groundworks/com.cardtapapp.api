@@ -11,7 +11,7 @@ import play.api._
 import play.api.libs.concurrent.AkkaPromise
 import play.api.mvc._
 import play.libs.Akka.system
-import ensemble._
+import actors._
 import com.googlecode.protobuf.format.XmlFormat
 import com.googlecode.protobuf.format.JsonFormat
 
@@ -89,7 +89,7 @@ object Application extends Controller {
         case Failure => BadRequest
         case DeviceRegistration(registration) =>
           val login = routes.Application.login(registration).toString
-          Created.withHeaders("Location" -> login)
+          Created(registration).withHeaders("Location" -> login)
         case _ => InternalServerError
       })
   }
@@ -97,8 +97,7 @@ object Application extends Controller {
   def login(secret: String) = Action {
     async(deviceManager ? Login(secret)) {
       case account: Account =>
-        val body = JsonFormat.printToString(account)
-        Ok(body)
+        Ok(account.toByteArray())
       case AccountNotAuthorized =>
         Unauthorized
       case AccountNotFound =>
@@ -116,5 +115,15 @@ object Application extends Controller {
       case _ => InternalServerError
     }
   }
+  
+  def poll(secret: String) = Action {
+    async(deviceManager ? GetAuthorizationCodeFromSecret(secret)){
+      case code:String => Ok(code)
+      case _ => InternalServerError
+    }
+  }
+  
+  def status = Action{Ok}
+  
 }
 

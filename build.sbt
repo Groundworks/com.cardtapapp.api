@@ -10,3 +10,8 @@ libraryDependencies += "com.googlecode.protobuf-java-format" % "protobuf-java-fo
 
 libraryDependencies += "postgresql" % "postgresql" % "9.1-901.jdbc4"
 
+libraryDependencies += "junit" % "junit" % "4.8.1" % "test"
+
+libraryDependencies += "org.scalatest" %% "scalatest" % "1.8" % "test"
+
+libraryDependencies += "net.databinder.dispatch" %% "core" % "0.9.0" % "test"
