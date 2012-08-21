@@ -28,6 +28,32 @@ object DevicesModel {
     .setEmail(email)
     .build()
 
+  def setAuthorizationFromCode(code: String, auth: Authorization) {
+    val stmt = db.prepareStatement("UPDATE device SET buffer=? WHERE authcode=?")
+    stmt.setBytes(1, auth.toByteArray())
+    stmt.setString(2, code)
+    Logger.debug(stmt.toString())
+    val rtn = stmt.executeUpdate()
+  }
+
+  def getAuthorizationFromCode(code: String) = {
+    val stmt = db.prepareStatement("SELECT buffer FROM device WHERE authcode=?")
+    stmt.setString(1, code)
+    Logger.debug(stmt.toString)
+    val rslt = stmt.executeQuery()
+
+    // Results //
+    if (rslt.next()) {
+
+      val buffer = rslt.getBytes(1)
+      val authzn = Authorization.parseFrom(buffer)
+
+      Some(authzn)
+    } else {
+      None
+    }
+  }
+
   def getAuthorizationFromSecret(secret: String) = {
     val stmt = db.prepareStatement("SELECT buffer FROM device WHERE device=?")
     stmt.setString(1, secret)

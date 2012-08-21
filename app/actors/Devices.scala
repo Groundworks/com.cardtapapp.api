@@ -4,7 +4,6 @@ import com.cardtapapp.api.Main._
 import akka.actor._
 import akka.pattern._
 import play.api.Logger
-import models.Database.{ connection => db }
 import controllers.Random._
 import akka.util.Timeout
 import akka.util.Duration
@@ -23,7 +22,7 @@ case object DeviceNotAuthorized
 class DeviceManager extends Actor {
 
   import models.AuthorizationAccesses._
-  
+
   def isValid(auth: Authorization) = {
     auth.getAccess() equals AUTH_VALIDATED
   }
@@ -39,14 +38,14 @@ class DeviceManager extends Actor {
   implicit val timeout: Timeout = Timeout(Duration(5, "seconds"))
 
   import models.DevicesModel._
-  
+
   val accountManager = context.actorFor("../accounts")
-  val mailManager    = context.actorFor("../mailer")
-  
+  val mailManager = context.actorFor("../mailer")
+
   Logger.debug("Device Manager ActorRef to AccountManager has Path: %s" format accountManager.path)
-  
+
   def receive = {
-    
+
     case GetAuthorizationCodeFromSecret(secret: String) =>
       getAuthorizationFromSecret(secret) map { auth =>
         sender ! auth.getCode()
@@ -70,34 +69,16 @@ class DeviceManager extends Actor {
 
     case Authorize(code) =>
 
-      // Database //
-      val stmt = db.prepareStatement("SELECT buffer FROM device WHERE authcode=?")
-      stmt.setString(1, code)
-      Logger.debug(stmt.toString)
-      val rslt = stmt.executeQuery()
-
-      // Results //
-      if (rslt.next()) {
-
-        val buffer = rslt.getBytes(1)
-        val authzn = Authorization.parseFrom(buffer)
-        val device = authzn.getDevice()
-
-        // Device is authorized - Insert into Database
+      getAuthorizationFromCode(code) map { authzn =>
+      	
+        // Authorize Registered Device //
+        
         val authok = Authorization.newBuilder(authzn).setAccess(AUTH_VALIDATED).build()
-
-        val stmt = db.prepareStatement("UPDATE device SET buffer=? WHERE authcode=?")
-        stmt.setBytes(1, authok.toByteArray())
-        stmt.setString(2, code)
-        Logger.debug(stmt.toString())
-        val rtn = stmt.executeUpdate()
-        Logger.debug("executeUpdate() = %d" format rtn)
-
-        val loc = device.getSecret()
-        Logger.info("Authorizing Code: " + code)
+        setAuthorizationFromCode(code, authok)
 
         sender ! RedirectLogin(device.getSecret())
-      } else {
+
+      } getOrElse {
         sender ! Failure
       }
 
