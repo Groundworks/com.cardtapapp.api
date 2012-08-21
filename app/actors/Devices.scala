@@ -78,11 +78,12 @@ class DeviceManager extends Actor {
       }
 
     case GetRegisteredEmail(secret: String) =>
+      val s = sender
       Logger.debug("Get Registered Email from Secret: %s" format secret)
       getAuthorizationFromSecret(secret) map { auth =>
-        sender ! auth.getEmail()
+        s ! auth.getEmail()
       } getOrElse {
-        sender ! None
+        s ! Failure
       }
 
     case RegisterNewDevice(email) =>
@@ -93,15 +94,16 @@ class DeviceManager extends Actor {
       sender ! DeviceRegistration(auth.getDevice().getSecret())
 
     case AuthorizeRegisteredDevice(code) =>
+      val s = sender
       Logger.debug("Authorizing Device with Code: " + code)
       getAuthorizationFromCode(code) map { authzn =>
         val authok = Authorization.newBuilder(authzn).setAccess(AUTH_VALIDATED).build()
         setAuthorizationFromCode(code, authok)
-        sender ! RedirectLogin(device.getSecret())
+        s ! RedirectLogin(device.getSecret())
       } getOrElse {
-        sender ! Failure
+        s ! Failure
       }
-
+      
     case LoginWithDeviceSecret(secret) =>
       Logger.debug("Log In with Device Secret: " + secret)
       getAuthorizationFromSecret(secret) map { authzn =>

@@ -37,7 +37,23 @@ object Application extends Controller {
       new AkkaPromise(_query).map { _handler }
     }
   }
-
+  
+  def stack(secret:String) = Action { request=>
+    request.body.asRaw.flatMap{ buffer =>
+      buffer.asBytes() map { bytes =>
+        val stack = Stack.parseFrom(bytes)
+        async(deviceManager ? GetAccountFromSecretIfAuthorized(secret)) {
+          case account:Account =>
+            async(accountManager ? UpdateStackForAccount(account,stack)) {
+              case Success => Created
+              case _ => InternalServerError
+            }
+          case DeviceNotAuthorized => Unauthorized
+        }
+      }
+    } getOrElse BadRequest
+  }
+  
   val cardForm = Form(tuple("face" -> text, "rear" -> text))
   def card(secret: String) = Action { implicit request =>
     cardForm.bindFromRequest.fold(

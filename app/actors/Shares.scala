@@ -24,10 +24,9 @@ class ShareManager extends Actor {
   def receive = {
 
     case ShareCard(shareWith, card, secret) =>
-
       val s = sender // avoid closure over outer scope
 
-      // Get Account from Accounts Actor //
+      // Get Account from Devices Actor //
       devicesManager ? GetAccountFromSecretIfAuthorized(secret) map {
         case account: Account =>
           val share = Share.newBuilder()
@@ -36,6 +35,7 @@ class ShareManager extends Actor {
             .setFrom(account.getEmail())
             .build()
           newShare(share)
+          
           // Tell Accounts Actor to Modify Account //
           accountManager ? AddCardToAccount(shareWith, card) map {
             case Success => s ! Success

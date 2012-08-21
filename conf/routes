@@ -13,6 +13,9 @@ POST /card/*devcode       controllers.Application.card(devcode)
 GET  /assets/*file        controllers.Assets.at(path="/public", file)
 GET  /status              controllers.Application.status
 
+# Card and Account Management
+POST /stack/*devcode      controllers.Application.stack(devcode)
+
 # Administrative Functions - Not For Production
 
 GET  /poll/*secret        controllers.Application.poll(secret)
