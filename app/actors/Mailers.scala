@@ -17,8 +17,5 @@ class MailManager extends Actor {
       Logger.info("Register Device %s to %s" format (
         auth.getDevice().getSecret(), auth.getEmail()))
       Logger.info("Confirm: /auth/" + auth.getCode())
-    case any =>
-      Logger.warn("Unknown Message Received by Mail Manager: " + any)
-      sender ! Failure
   }
 }

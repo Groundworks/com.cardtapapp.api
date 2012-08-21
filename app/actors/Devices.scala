@@ -54,13 +54,13 @@ class DeviceManager extends Actor {
       val s = sender
       getAuthorizationFromSecret(secret) map { auth =>
         if (auth.getAccess() equals AUTH_VALIDATED) {
-          accountManager ? GetAccount(auth.getEmail()) map { 
-            case Some(account:Account) =>
-              s!account
-            case _ => s!Failure
+          accountManager ? GetAccount(auth.getEmail()) map {
+            case Some(account: Account) =>
+              s ! account
+            case _ => s ! Failure
           }
         } else {
-          s!DeviceNotAuthorized
+          s ! DeviceNotAuthorized
         }
       }
 
@@ -117,10 +117,5 @@ class DeviceManager extends Actor {
         }
 
       } getOrElse { sender ! Failure }
-
-    case any =>
-      Logger.warn("Unknown Message Received by Device Manager: " + any)
-      sender ! Failure
   }
-
 }

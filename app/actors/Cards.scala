@@ -34,6 +34,5 @@ class CardManager extends Actor {
           sender ! Failure
         }
       }
-    case _ => sender ! Failure
   }
 }

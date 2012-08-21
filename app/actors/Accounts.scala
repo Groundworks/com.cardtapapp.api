@@ -22,7 +22,7 @@ case object AccountNotFound
 class AccountManager extends Actor {
 
   import models.AccountsModel._
-  
+
   implicit val timeout: Timeout = Timeout(Duration(5, "seconds"))
 
   def receive = {
@@ -30,7 +30,7 @@ class AccountManager extends Actor {
       sender ! getAccountByEmail(email)
 
     case AddCardToAccount(email, card) =>
-      
+
       val account = {
         getAccountByEmail(email)
       }.getOrElse {
@@ -49,9 +49,5 @@ class AccountManager extends Actor {
       if (!accountExists(email)) {
         newAccountWithEmail(email)
       }
-
-    case any =>
-      Logger.warn("Unknown Message Received by Account Manager: " + any)
-      sender ! Failure
   }
 }
