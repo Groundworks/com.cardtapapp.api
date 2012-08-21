@@ -8,14 +8,13 @@ import controllers.Random._
 import akka.util.Timeout
 import akka.util.Duration
 
-// Share //
-
 case class ShareCard(email: String, card: Card, secret: String)
 
 class ShareManager extends Actor {
 
   implicit val timeout: Timeout = Timeout(Duration(5, "seconds"))
 
+  // Message Relative Actors in the Ensemble // 
   val accountManager = context.actorFor("../accounts")
   val devicesManager = context.actorFor("../devices")
 
@@ -25,12 +24,16 @@ class ShareManager extends Actor {
 
     case ShareCard(shareWith, card, secret) =>
       val s = sender // avoid closure over outer scope
-
+      val sharedCard = Card
+      	.newBuilder(card)
+      	.setStatus("shared")
+      	.build()
+      
       // Get Account from Devices Actor //
       devicesManager ? GetAccountFromSecretIfAuthorized(secret) map {
         case account: Account =>
           val share = Share.newBuilder()
-            .setCard(card)
+            .setCard(sharedCard)
             .setWith(shareWith)
             .setFrom(account.getEmail())
             .build()

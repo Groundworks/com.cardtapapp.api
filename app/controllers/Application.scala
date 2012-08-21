@@ -49,6 +49,7 @@ object Application extends Controller {
               case _ => InternalServerError
             }
           case DeviceNotAuthorized => Unauthorized
+          case _                   => InternalServerError
         }
       }
     } getOrElse BadRequest
@@ -102,40 +103,35 @@ object Application extends Controller {
     registerForm.bindFromRequest.fold(
       error => BadRequest("Must Provide `Email` Form Data"),
       value => async(deviceManager ? RegisterNewDevice(value)) {
-        case Failure => BadRequest
+        case Failure                          => BadRequest
         case DeviceRegistration(registration) =>
           val login = routes.Application.login(registration).toString
           Created(registration).withHeaders("Location" -> login)
-        case _ => InternalServerError
+        case _                                => InternalServerError
       })
   }
 
   def login(secret: String) = Action {
     async(deviceManager ? LoginWithDeviceSecret(secret)) {
-      case account: Account =>
-        Ok(account.toByteArray())
-      case AccountNotAuthorized =>
-        Unauthorized
-      case AccountNotFound =>
-        NotFound
-      case _ => InternalServerError
+      case account: Account     => Ok(account.toByteArray())
+      case AccountNotAuthorized => Unauthorized
+      case AccountNotFound      => NotFound
+      case _                    => InternalServerError
     }
   }
 
   def auth(devcode: String) = Action {
     async(deviceManager ? AuthorizeRegisteredDevice(devcode)) {
-      case RedirectLogin(secret) =>
-        Redirect(routes.Application.login(secret))
-      case Failure =>
-        NotFound
-      case _ => InternalServerError
+      case RedirectLogin(secret) => Redirect(routes.Application.login(secret))
+      case Failure               => NotFound
+      case _                     => InternalServerError
     }
   }
   
   def poll(secret: String) = Action {
     async(deviceManager ? GetAuthorizationCodeFromSecret(secret)){
       case code:String => Ok(code)
-      case _ => InternalServerError
+      case _           => InternalServerError
     }
   }
   
