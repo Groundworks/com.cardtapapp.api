@@ -102,7 +102,7 @@ class AccountManager extends Actor {
   def receive = {
     case GetAccount(email) =>
       sender ! getAccountByEmail(email)
-      
+
     case AddCardToAccount(email, card) =>
       val account = {
         getAccountByEmail(email)
@@ -201,7 +201,15 @@ class DeviceManager extends Actor {
   def isValid(auth: Authorization) = {
     auth.getAccess() equals AccountManager.AUTH_VALIDATED
   }
-  
+
+  def validateEmail(auth: Authorization) = {
+    if (isValid(auth)) {
+      Some(auth.getEmail())
+    } else {
+      None
+    }
+  }
+
   implicit val timeout: Timeout = Timeout(Duration(5, "seconds"))
 
   def receive = {
@@ -266,24 +274,16 @@ class DeviceManager extends Actor {
       }
 
     case Login(secret) =>
-
       Logger.info("Attempt Log In with Secret: " + secret)
-
-      // Database //
-
       getAuthorizationFromSecret(secret) map { authzn =>
-        var s = sender
+        var s = sender // avoid closure over actor internals
         
-        if (isValid(authzn)) {
-          
-          val email = authzn.getEmail()
-          
-          accountManager ? GetAccount(email) map { 
-            case Some(account:Account) => s ! account
-            case _ => s ! Failure
+        validateEmail(authzn) map { email =>
+          accountManager ? GetAccount(email) map {
+            case Some(account: Account) => s ! account
+            case _                      => s ! Failure
           }
-          
-        } else {
+        } getOrElse {
           Logger.info("Login Fail - Device %s Not Yet Authorized" format secret)
           s ! AccountNotAuthorized
         }
