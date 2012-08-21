@@ -13,6 +13,12 @@ import play.libs.Akka.system
 import actors._
 import com.googlecode.protobuf.format.XmlFormat
 import com.googlecode.protobuf.format.JsonFormat
+import controllers.log.logger
+
+package object log {
+    
+  val logger = play.api.Logger("controllers")
+}
 
 // Controller //
 
@@ -22,14 +28,14 @@ object Application extends Controller {
 
   {
     director ! Start
-    Logger.debug("Director Has Path: %s" format director.path)
+    logger.debug("Director Has Path: %s" format director.path)
   }
 
   def devicesManager = system.actorFor("user/main/devices")
   def accountManager = system.actorFor("user/main/accounts")
   def sharingManager = system.actorFor("user/main/shares")
 
-  Logger.debug("Device Manager Reference at Path: %s" format devicesManager.path)
+  logger.debug("Device Manager Reference at Path: %s" format devicesManager.path)
 
   implicit val timeout: Timeout = Timeout(Duration(5, "seconds"))
   def async(_query: akka.dispatch.Future[Any])(_handler: Any => Result) = {
@@ -65,7 +71,7 @@ object Application extends Controller {
     request.contentType.flatMap {
       case "application/x-protobuf" =>
         // Deserialize Protbufs Directly //
-        Logger.debug("Card Parsing Incoming Protocol Buffer")
+        logger.debug("Card Parsing Incoming Protocol Buffer")
         request.body.asRaw flatMap { raw =>
           raw.asBytes().map { bytes =>
             Card.parseFrom(bytes)
@@ -73,10 +79,10 @@ object Application extends Controller {
         }
       case _ =>
         // Non-Protobuf, Try Prasing as Form Data //
-        Logger.debug("Card Parsing Incoming Form Data")
+        logger.debug("Card Parsing Incoming Form Data")
         cardForm.bindFromRequest.fold(
           error => {
-            Logger.warn("Card Cannot Bind Form Data")
+            logger.warn("Card Cannot Bind Form Data")
             None
           },
           value => {

@@ -1,6 +1,6 @@
 package actors
 import akka.actor._
-import play.api.Logger
+import actors.log.logger
 
 // General Messages //
 
@@ -15,7 +15,7 @@ class Director extends Actor {
   def receive = {
     case Start =>
       Ensemble.start(context)
-    case _     => Logger.debug("Director Received Message")
+    case _     => logger.debug("Director Received Message")
   }
 }
 
@@ -27,10 +27,10 @@ object Ensemble {
     val shares   = context.actorOf(Props[ShareManager], "shares")
     val mailers  = context.actorOf(Props[MailManager], "mailer")
     
-    Logger.debug("Accounts Actor Has path: %s" format accounts.path)
-    Logger.debug("Devices Actor Has path: %s" format devices.path)
-    Logger.debug("Shares Actor Has path: %s" format shares.path)
-    Logger.debug("Mailers Actor Has path: %s" format mailers.path)
+    logger.debug("Accounts Actor Has path: %s" format accounts.path)
+    logger.debug("Devices Actor Has path: %s" format devices.path)
+    logger.debug("Shares Actor Has path: %s" format shares.path)
+    logger.debug("Mailers Actor Has path: %s" format mailers.path)
   }
 
 }

@@ -3,7 +3,7 @@ package actors
 import com.cardtapapp.api.Main._
 import akka.actor._
 import akka.pattern._
-import play.api.Logger
+import actors.log.logger
 import controllers.Random._
 import akka.util.Timeout
 import akka.util.Duration
@@ -44,7 +44,7 @@ class DeviceManager extends Actor {
   val accountManager = context.actorFor("../accounts")
   val mailersManager = context.actorFor("../mailer")
 
-  Logger.debug("Device Manager ActorRef to AccountManager has Path: %s" format accountManager.path)
+  logger.debug("Device Manager ActorRef to AccountManager has Path: %s" format accountManager.path)
 
   import models.DevicesModel._
 
@@ -68,7 +68,7 @@ class DeviceManager extends Actor {
       getAuthorizationFromSecret(secret) map { auth =>
         sender ! auth
       } getOrElse {
-        Logger.warn("Device Could Not be Found from Secret: " + secret)
+        logger.warn("Device Could Not be Found from Secret: " + secret)
         sender ! Failure
       }
 
@@ -79,7 +79,7 @@ class DeviceManager extends Actor {
 
     case GetRegisteredEmail(secret: String) =>
       val s = sender
-      Logger.debug("Get Registered Email from Secret: %s" format secret)
+      logger.debug("Get Registered Email from Secret: %s" format secret)
       getAuthorizationFromSecret(secret) map { auth =>
         s ! auth.getEmail()
       } getOrElse {
@@ -87,7 +87,7 @@ class DeviceManager extends Actor {
       }
 
     case RegisterNewDevice(email) =>
-      Logger.debug("Registering New Device to Email: " + email)
+      logger.debug("Registering New Device to Email: " + email)
       val auth = newAuthorizationFromEmail(email)
       accountManager ! EnsureAccountExists(email)
       mailersManager ! RegistrationConfirmation(auth)
@@ -95,7 +95,7 @@ class DeviceManager extends Actor {
 
     case AuthorizeRegisteredDevice(code) =>
       val s = sender
-      Logger.debug("Authorizing Device with Code: " + code)
+      logger.debug("Authorizing Device with Code: " + code)
       getAuthorizationFromCode(code) map { authzn =>
         val authok = Authorization.newBuilder(authzn).setAccess(AUTH_VALIDATED).build()
         setAuthorizationFromCode(code, authok)
@@ -105,7 +105,7 @@ class DeviceManager extends Actor {
       }
       
     case LoginWithDeviceSecret(secret) =>
-      Logger.debug("Log In with Device Secret: " + secret)
+      logger.debug("Log In with Device Secret: " + secret)
       getAuthorizationFromSecret(secret) map { authzn =>
         var s = sender // avoid closure over actor internals
         validateEmail(authzn) map { email =>
@@ -114,7 +114,7 @@ class DeviceManager extends Actor {
             case _                      => s ! Failure
           }
         } getOrElse {
-          Logger.warn("Login Fail - Device %s Not Yet Authorized" format secret)
+          logger.warn("Login Fail - Device %s Not Yet Authorized" format secret)
           s ! AccountNotAuthorized
         }
 

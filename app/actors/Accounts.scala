@@ -1,7 +1,7 @@
 package actors
 
 import akka.actor._
-import play.api.Logger
+import actors.log.logger
 import akka.util._
 import akka.pattern._
 import com.cardtapapp.api.Main._
@@ -26,13 +26,13 @@ class AccountManager extends Actor {
 
   def getCardByIdFromStack(id: String, stack: Stack): Option[Card] = {
     if (id equals "") {
-      Logger.warn("Card Does Not Have UUID")
+      logger.warn("Card Does Not Have UUID")
       None
     } else {
       val cards = for (
         i <- 0 until stack.getCardsCount() if (stack.getCards(i).getUuid() equals id)
       ) yield {
-        Logger.debug("Duplicate Card Exists")
+        logger.debug("Duplicate Card Exists")
         stack.getCards(i)
       }
       cards.headOption
@@ -63,7 +63,7 @@ class AccountManager extends Actor {
             setAccountByEmail(email, accountNew)
           }
           s ! Success
-        case _ => Logger.warn("Failed to Add Card - Account Failed to Return")
+        case _ => logger.warn("Failed to Add Card - Account Failed to Return")
       }
 
     case EnsureAccountExists(email) =>
@@ -73,7 +73,7 @@ class AccountManager extends Actor {
       } else {
         self ? GetAccount(email) map {
           case Some(account: Account) => s ! account
-          case _                      => Logger.warn("Failed to Ensure Account Exists")
+          case _                      => logger.warn("Failed to Ensure Account Exists")
         }
       }
   }

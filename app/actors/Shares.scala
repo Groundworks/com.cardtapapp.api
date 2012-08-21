@@ -3,7 +3,7 @@ package actors
 import com.cardtapapp.api.Main._
 import akka.actor._
 import akka.pattern._
-import play.api.Logger
+import actors.log.logger
 import controllers.Random._
 import akka.util.Timeout
 import akka.util.Duration
@@ -43,11 +43,11 @@ class ShareManager extends Actor {
           accountManager ? AddCardToAccount(shareWith, card) map {
             case Success => s ! Success
             case _ =>
-              Logger.warn("Share Card Failed to Add Card to Account")
+              logger.warn("Share Card Failed to Add Card to Account")
               s ! Failure
           }
         case _ =>
-          Logger.warn("Share Card Received Unknown Message from Device Manager")
+          logger.warn("Share Card Received Unknown Message from Device Manager")
           s ! _
       }
   }

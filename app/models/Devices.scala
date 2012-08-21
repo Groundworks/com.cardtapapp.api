@@ -3,7 +3,7 @@ package models
 import controllers.Random._
 import com.cardtapapp.api.Main._
 import models.Database.{ connection => db }
-import play.api.Logger
+import models.log.logger
 
 object DevicesModel {
 
@@ -27,14 +27,14 @@ object DevicesModel {
     val stmt = db.prepareStatement("UPDATE device SET buffer=? WHERE authcode=?")
     stmt.setBytes(1, auth.toByteArray())
     stmt.setString(2, code)
-    Logger.debug(stmt.toString())
+    logger.debug(stmt.toString())
     val rtn = stmt.executeUpdate()
   }
 
   def getAuthorizationFromCode(code: String) = {
     val stmt = db.prepareStatement("SELECT buffer FROM device WHERE authcode=?")
     stmt.setString(1, code)
-    Logger.debug(stmt.toString)
+    logger.debug(stmt.toString)
     val rslt = stmt.executeQuery()
 
     // Results //
@@ -66,7 +66,7 @@ object DevicesModel {
     prep.setString(1, auth.getCode())
     prep.setString(2, auth.getDevice().getSecret())
     prep.setBytes(3, auth.toByteArray())
-    Logger.debug(prep.toString())
+    logger.debug(prep.toString())
     prep.executeUpdate() // Unchecked
     auth
   }
