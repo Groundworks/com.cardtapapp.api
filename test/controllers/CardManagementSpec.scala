@@ -14,7 +14,10 @@ class ManagementSpec extends FeatureSpec {
   import api.Web._
 
   def addCard(secret: String, card: Card) {
-    post("/card/" + secret)("face" -> "1.png", "rear" -> "2.png")
+    Http(url(host + "/card/" + secret)
+      .setHeader("Content-Type", "application/x-protobuf")
+      .POST
+      .setBody(card.toByteArray()))()
   }
 
   feature("Card Management") {
@@ -45,22 +48,15 @@ class ManagementSpec extends FeatureSpec {
 
       val card = Card
         .newBuilder()
-        .setUuid("f039fj23f")
+        .setUuid(java.util.UUID.randomUUID().toString)
         .build()
 
-      Http(url(host + "/card/" + secret)
-        .addHeader("Content-Type", "application/x-protobuf")
-        .POST
-        .setBody(card.toByteArray()))()
-
-      Http(url(host + "/card/" + secret)
-        .addHeader("Content-Type", "application/x-protobuf")
-        .POST
-        .setBody(card.toByteArray()))()
+      addCard(secret, card)
+      addCard(secret, card)
 
       val stack1 = account(secret).getStack()
       val count1 = stack1.getCardsCount()
-      
+
       then("The card only appears once in the stack")
       count1 should equal(count0 + 1)
 
@@ -73,7 +69,6 @@ class ManagementSpec extends FeatureSpec {
       val card = Card
         .newBuilder()
         .setStatus("accepted")
-        .setUuid("asdf")
         .build()
 
       val svc = url(host + "/card/" + secret)

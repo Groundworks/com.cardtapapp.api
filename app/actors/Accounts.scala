@@ -25,12 +25,18 @@ class AccountManager extends Actor {
   implicit val timeout: Timeout = Timeout(Duration(5, "seconds"))
 
   def getCardByIdFromStack(id: String, stack: Stack): Option[Card] = {
-    val cards = for (
-      i <- 0 until stack.getCardsCount() if (stack.getCards(i).getUuid() equals id)
-    ) yield {
-      stack.getCards(i)
+    if (id equals "") {
+      Logger.warn("Card Does Not Have UUID")
+      None
+    } else {
+      val cards = for (
+        i <- 0 until stack.getCardsCount() if (stack.getCards(i).getUuid() equals id)
+      ) yield {
+        Logger.debug("Duplicate Card Exists")
+        stack.getCards(i)
+      }
+      cards.headOption
     }
-    cards.headOption
   }
 
   def receive = {
