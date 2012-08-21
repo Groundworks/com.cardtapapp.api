@@ -2,9 +2,12 @@ package ensemble
 
 import play.api.Logger
 import akka.actor._
+import akka.pattern._
 import com.cardtapapp.api.Main._
 import controllers.Random._
 import models.Database.{ connection => db }
+import akka.util.Timeout
+import akka.util.Duration
 
 // General Messages //
 
@@ -50,23 +53,13 @@ object AccountManager {
 class AccountManager extends Actor {
 
   import AccountManager._
+  import controllers.Ensemble._
+  implicit val timeout: Timeout = Timeout(Duration(5, "seconds"))
 
   def receive = {
-    case AddCardToAccount(secret, card) =>
-      {
-        val stmt = db.prepareStatement("SELECT buffer FROM device WHERE device=?")
-        stmt.setString(1, secret)
-        Logger.debug(stmt.toString)
-        val rslt = stmt.executeQuery()
-        if(rslt.next()){
-          val buffer = rslt.getBytes(1)
-          val device = Authorization.parseFrom(buffer)
-          Some(device.getEmail())
-        }else{
-          Logger.warn("Cannot Find Device (%s) in Add Card to Account" format secret)
-          None
-        }
-      } flatMap { email =>
+    case AddCardToAccount(email, card) =>
+      
+      val account = {
         val stmt = db.prepareStatement("SELECT buffer FROM account WHERE email=?")
         stmt.setString(1, email)
         Logger.debug(stmt.toString)
@@ -74,26 +67,33 @@ class AccountManager extends Actor {
         if (rslt.next()) {
           val buffer = rslt.getBytes(1)
           val account = Account.parseFrom(buffer)
-          Some((account,email))
+          Some(account)
         } else {
           Logger.warn("Cannot Find Account (%s) in Add Card to Account" format email)
           None
         }
-      } map { x =>
-        val (account,email) = x
-        val cardStackOld  = account.getStack()
-        val cardStackNew_ = Stack.newBuilder(cardStackOld).addCards(card).build()
-
-        val accountNew = Account.newBuilder(account).setStack(cardStackNew_).build()
-
-        val stmt = db.prepareStatement("UPDATE account SET buffer=? WHERE email=?")
-        stmt.setBytes(1, accountNew.toByteArray())
-        stmt.setString(2, email)
+      }.getOrElse { 
+        val act = Account.newBuilder().setEmail(email).build()
+        val stmt = db.prepareStatement("INSERT INTO account (buffer,email) VALUES (?,?)")
+        stmt.setBytes(1,act.toByteArray())
+        stmt.setString(2,email)
         Logger.debug(stmt.toString)
         stmt.executeUpdate()
-        
-        sender ! Success
-      } getOrElse sender ! Failure
+        act
+      }
+      
+      val cardStackOld = account.getStack()
+      val cardStackNew_ = Stack.newBuilder(cardStackOld).addCards(card).build()
+
+      val accountNew = Account.newBuilder(account).setStack(cardStackNew_).build()
+
+      val stmt = db.prepareStatement("UPDATE account SET buffer=? WHERE email=?")
+      stmt.setBytes(1, accountNew.toByteArray())
+      stmt.setString(2, email)
+      Logger.debug(stmt.toString)
+      stmt.executeUpdate()
+
+      sender ! Success
 
     case RegisterAccount(email) =>
       val stmt = db.prepareStatement("SELECT COUNT(id) FROM account WHERE email=?")
@@ -217,15 +217,10 @@ class CardManager extends Actor {
         val rslt = stmt.executeUpdate()
         if (rslt > 0) {
           Logger.info("New Card Inserted at %s" format _uuid)
-          Some(card)
+          sender ! card
         } else {
-          None
+          sender ! Failure
         }
-      }.map { card =>
-        sender ! card
-      } getOrElse {
-        Logger.warn("New Card Could Not be Inserted Into Database")
-        sender ! Failure
       }
     case _ => sender ! Failure
   }
@@ -235,6 +230,7 @@ class CardManager extends Actor {
 case class GetDevice(secret: String)
 case class RegisterDevice(email: String)
 case class DeviceRegistration(secret: String)
+case class GetRegisteredEmail(secret: String)
 
 case object DeviceNotRegistered
 case object DeviceNotAuthorized
@@ -260,6 +256,19 @@ class DeviceManager extends Actor {
     .build()
 
   def receive = {
+
+    case GetRegisteredEmail(secret: String) =>
+      {
+        val stmt = db.prepareStatement("SELECT buffer FROM device WHERE device=?")
+        stmt.setString(1, secret)
+        val rslt = stmt.executeQuery()
+        if (rslt.next()) {
+          sender ! Authorization.parseFrom(rslt.getBytes(1)).getEmail()
+        } else {
+          sender ! None
+        }
+      }
+
     case RegisterDevice(email) =>
       Logger.info("Registering New Device to Email: " + email)
       accountManager ! RegisterAccount(email)
@@ -286,13 +295,15 @@ class DeviceManager extends Actor {
 
 // Share //
 
-case class ShareCard(email: String, card: String, secret: String)
+case class ShareCard(email: String, card: Card, secret: String)
 
 class ShareManager extends Actor {
   import AccountManager._
+  import controllers.Ensemble._
+  implicit val timeout: Timeout = Timeout(Duration(5, "seconds"))
 
   def receive = {
-    case ShareCard(cardWith, cardShare, secret) =>
+    case ShareCard(shareWith, card, secret) =>
 
       // Database //
       val prep = db.prepareStatement("SELECT buffer FROM device WHERE device=?")
@@ -314,41 +325,18 @@ class ShareManager extends Actor {
 
           if (rslt2.next()) {
 
-            // Fetch Card //
-            {
-              val stmt = db.prepareStatement("SELECT buffer FROM card WHERE uuid=?")
-              stmt.setString(1, cardShare)
-              val rslt = stmt.executeQuery()
-              if (rslt.next()) {
-                val buffer = rslt.getBytes(1)
-                try {
-                  Some(Card.parseFrom(buffer))
-                } catch {
-                  case e: com.google.protobuf.InvalidProtocolBufferException =>
-                    None
-                  case _ =>
-                    Logger.error("Unhandled Exception During Card Protobuf Deserialization")
-                    None
-                }
-              } else {
-                None
-              }
-            } map { card =>
+            val share = Share.newBuilder().setCard(card).setWith(shareWith).setFrom(email).build()
+            val stmt2 = db.prepareStatement("INSERT INTO share (buffer) VALUES (?)")
+            stmt2.setBytes(1, share.toByteArray())
+            Logger.debug(stmt2.toString())
+            stmt2.executeUpdate() // possible unhandled error
 
-              val share = Share.newBuilder().setCard(cardShare).setWith(cardWith).setFrom(email).build()
-              val stmt2 = db.prepareStatement("INSERT INTO share (buffer) VALUES (?)")
-              stmt2.setBytes(1, share.toByteArray())
-              Logger.debug(stmt2.toString())
-              stmt2.executeUpdate() // possible unhandled error
+            Logger.debug(stmt2.toString())
+            Logger.info("New Care Shared to Email: " + shareWith)
+            sender ! Success
 
-              Logger.debug(stmt2.toString())
-              Logger.info("New Care Shared to Email: " + cardWith)
-              sender ! Success
+            accountManager ? AddCardToAccount(shareWith, card)
 
-            } getOrElse {
-              Logger.warn("Shared Card Does Not Exist in Database")
-              sender ! Failure
-            }
           } else {
             Logger.warn("Sharing Account Not Found")
             sender ! AccountNotFound

@@ -41,21 +41,29 @@ object Application extends Controller {
   val cardForm = Form(tuple("face" -> text, "rear" -> text))
   def card(secret: String) = Action { implicit request =>
     cardForm.bindFromRequest.fold(
-      error => BadRequest, 
+      error => BadRequest,
       value => {
         val (face, rear) = value
         val card = Card.newBuilder()
-        	.setUuid(java.util.UUID.randomUUID().toString)
-        	.setImageFace(face)
-        	.setImageRear(rear)
-        	.build()
-        async(accountManager ? AddCardToAccount(secret,card)){
-          case Success => Ok(card.toByteArray())
-          case _ => InternalServerError
+          .setUuid(java.util.UUID.randomUUID().toString)
+          .setImageFace(face)
+          .setImageRear(rear)
+          .build()
+
+        val x = for {
+          email <- (deviceManager ? GetRegisteredEmail(secret)).mapTo[String]
+          reslt <- (accountManager ? AddCardToAccount(email, card))
+        } yield reslt
+
+        val z = async(x) {
+          case Success => Created
+          case _       => InternalServerError
         }
+
+        z
       })
   }
-  
+
   val shareForm = Form(tuple(
     "card" -> text,
     "with" -> text))
@@ -65,7 +73,8 @@ object Application extends Controller {
       error => BadRequest("Must Provide `card` and `with` Form Data"),
       value => {
         val (cardShare, cardWith) = value
-        async(shareManager ? ShareCard(cardWith, cardShare, secret)) {
+        val card = Card.newBuilder().setImageFace("1.png").setImageRear("2.png").build()
+        async(shareManager ? ShareCard(cardWith, card, secret)) {
           case AccountNotFound     => NotFound("Account Error")
           case DeviceNotRegistered => NotFound("Device Error")
           case DeviceNotAuthorized => Unauthorized
