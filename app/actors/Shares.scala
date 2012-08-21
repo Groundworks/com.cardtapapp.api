@@ -4,7 +4,6 @@ import com.cardtapapp.api.Main._
 import akka.actor._
 import akka.pattern._
 import play.api.Logger
-import models.Database.{ connection => db }
 import controllers.Random._
 import akka.util.Timeout
 import akka.util.Duration
@@ -20,13 +19,8 @@ class ShareManager extends Actor {
   val accountManager = context.actorFor("../accounts")
   val devicesManager = context.actorFor("../devices")
 
-  def newShare(share: Share) {
-    val stmt2 = db.prepareStatement("INSERT INTO share (buffer) VALUES (?)")
-    stmt2.setBytes(1, share.toByteArray())
-    Logger.debug(stmt2.toString())
-    stmt2.executeUpdate() // possible unhandled error
-  }
-
+  import models.SharesModel._
+  
   def receive = {
 
     case ShareCard(shareWith, card, secret) =>
