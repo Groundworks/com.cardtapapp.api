@@ -20,47 +20,39 @@ class ShareManager extends Actor {
   val accountManager = context.actorFor("../accounts")
   val devicesManager = context.actorFor("../devices")
 
+  def newShare(share: Share) {
+    val stmt2 = db.prepareStatement("INSERT INTO share (buffer) VALUES (?)")
+    stmt2.setBytes(1, share.toByteArray())
+    Logger.debug(stmt2.toString())
+    stmt2.executeUpdate() // possible unhandled error
+  }
+
   def receive = {
 
     case ShareCard(shareWith, card, secret) =>
 
-      val s = sender
+      val s = sender // avoid closure over outer scope
 
-      devicesManager ? GetDevice(secret) map {
-        case auth: Authorization =>
-          val access = auth.getAccess()
-
-          Logger.debug("Access: %s" format access)
-          if (access equals "VALIDATED") {
-            val email = auth.getEmail()
-            val stmt = db.prepareStatement("SELECT buffer FROM account WHERE email=?")
-            stmt.setString(1, email)
-            Logger.debug(stmt.toString())
-            val rslt2 = stmt.executeQuery()
-
-            if (rslt2.next()) {
-
-              val share = Share.newBuilder().setCard(card).setWith(shareWith).setFrom(email).build()
-              val stmt2 = db.prepareStatement("INSERT INTO share (buffer) VALUES (?)")
-              stmt2.setBytes(1, share.toByteArray())
-              Logger.debug(stmt2.toString())
-              stmt2.executeUpdate() // possible unhandled error
-
-              Logger.debug(stmt2.toString())
-              Logger.info("New Care Shared to Email: " + shareWith)
-              s ! Success
-
-              accountManager ? AddCardToAccount(shareWith, card)
-
-            } else {
-              Logger.warn("Sharing Account Not Found")
-              s ! AccountNotFound
-            }
-          } else {
-            Logger.warn("Device Not Authorized")
-            s ! DeviceNotAuthorized
+      devicesManager ? GetAccountFromSecretIfAuthorized(secret) map {
+        case account: Account =>
+          val share = Share.newBuilder()
+            .setCard(card)
+            .setWith(shareWith)
+            .setFrom(account.getEmail())
+            .build()
+          newShare(share)
+          accountManager ? AddCardToAccount(shareWith, card) map {
+            case Success => s!Success
+            case _ => 
+              Logger.warn("Share Card Failed to Add Card to Account")
+              s!Failure
           }
-        case _ => s ! Failure
+        case DeviceNotAuthorized =>
+          Logger.warn("Sharing Device is Not Authorized")
+          s!Failure
+        case _ =>
+          Logger.warn("Share Card Received Unknown Message from Device Manager")
+          s!Failure
       }
     case any =>
       Logger.warn("Unknown Message Received by Share Manager: " + any)

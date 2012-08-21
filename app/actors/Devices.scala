@@ -10,6 +10,7 @@ import akka.util.Duration
 
 // Devices //
 
+case class GetAccountFromSecretIfAuthorized(secret: String)
 case class GetDevice(secret: String)
 case class RegisterNewDevice(email: String)
 case class DeviceRegistration(secret: String)
@@ -22,7 +23,7 @@ case object DeviceNotRegistered
 case object DeviceNotAuthorized
 
 class DeviceManager extends Actor {
-  
+
   val AUTH_VALIDATED = "VALIDATED"
   val AUTH_PENDING = "PENDING"
 
@@ -46,17 +47,31 @@ class DeviceManager extends Actor {
   Logger.debug("Device Manager ActorRef to AccountManager has Path: %s" format accountManager.path)
 
   import models.DevicesModel._
-  
+
   def receive = {
 
+    case GetAccountFromSecretIfAuthorized(secret) =>
+      val s = sender
+      getAuthorizationFromSecret(secret) map { auth =>
+        if (auth.getAccess() equals AUTH_VALIDATED) {
+          accountManager ? GetAccount(auth.getEmail()) map { 
+            case Some(account:Account) =>
+              s!account
+            case _ => s!Failure
+          }
+        } else {
+          s!DeviceNotAuthorized
+        }
+      }
+
     case GetDevice(secret) =>
-      getAuthorizationFromSecret(secret) map { auth=>
+      getAuthorizationFromSecret(secret) map { auth =>
         sender ! auth
-      } getOrElse{
+      } getOrElse {
         Logger.warn("Device Could Not be Found from Secret: " + secret)
         sender ! Failure
       }
-    
+
     case GetAuthorizationCodeFromSecret(secret: String) =>
       getAuthorizationFromSecret(secret) map { auth =>
         sender ! auth.getCode()
