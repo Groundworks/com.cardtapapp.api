@@ -13,6 +13,7 @@ object Web {
       val (key, value) = q
       svc.addQueryParameter(key, value)
     }
+    svc.setHeader("Content-Type","application/x-www-form-urlencoded")
     Http(svc)()
   }
 
