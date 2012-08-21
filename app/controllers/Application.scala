@@ -50,17 +50,13 @@ object Application extends Controller {
           .setImageRear(rear)
           .build()
 
-        val x = for {
+        async( for {
           email <- (deviceManager ? GetRegisteredEmail(secret)).mapTo[String]
           reslt <- (accountManager ? AddCardToAccount(email, card))
-        } yield reslt
-
-        val z = async(x) {
+        } yield reslt ){
           case Success => Created
           case _       => InternalServerError
         }
-
-        z
       })
   }
 
@@ -99,7 +95,7 @@ object Application extends Controller {
   }
 
   def login(secret: String) = Action {
-    async(accountManager ? Login(secret)) {
+    async(deviceManager ? Login(secret)) {
       case account: Account =>
         val body = JsonFormat.printToString(account)
         Ok(body)
@@ -112,7 +108,7 @@ object Application extends Controller {
   }
 
   def auth(devcode: String) = Action {
-    async(accountManager ? Authorize(devcode)) {
+    async(deviceManager ? Authorize(devcode)) {
       case RedirectLogin(secret) =>
         Redirect(routes.Application.login(secret))
       case Failure =>
