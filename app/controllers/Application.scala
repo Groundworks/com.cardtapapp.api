@@ -44,8 +44,24 @@ object Application extends Controller {
     }
   }
   
-  def cards(secret: String) = Action {
-    Ok
+  def cards(secret: String) = Action { request =>
+    request.body.asRaw.flatMap { buffer =>
+      buffer.asBytes() map { bytes =>
+        val card = Card.parseFrom(bytes)
+        async(devicesManager ? GetRegisteredEmail(secret) ){
+          case email:String => 
+            async(accountManager ? AddCardToCards(email,card)){
+              case Success => Ok
+              case AccountNotFound => NotFound
+              case _ => 
+                Logger.warn("Unknown Reply Received by Cards Controller")
+                InternalServerError
+            }
+          case Failure => NotFound
+          case _ => InternalServerError
+        }
+      }
+    }getOrElse BadRequest
   }
 
   def stack(secret: String) = Action { request =>
@@ -102,7 +118,7 @@ object Application extends Controller {
       // Otherwise this is not called  
       async(for {
         email <- (devicesManager ? GetRegisteredEmail(secret)).mapTo[String]
-        reslt <- (accountManager ? AddCardToAccount(email, card))
+        reslt <- (accountManager ? AddCardToStack(email, card))
       } yield reslt) {
         case Success => Created
         case _       => InternalServerError

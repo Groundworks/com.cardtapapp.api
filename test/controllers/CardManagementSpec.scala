@@ -42,7 +42,7 @@ class ManagementSpec extends FeatureSpec {
       count2 should equal(count0)
 
     }
-
+    
     scenario("User Adds a Card Twice it Does Not Appear More than Once") {
       when("User adds a card object twice")
       val secret = device("test")
@@ -65,7 +65,7 @@ class ManagementSpec extends FeatureSpec {
       count1 should equal(count0 + 1)
 
     }
-
+    
     scenario("User uploads their own card") {
 
       val secret = device("test")
@@ -79,13 +79,35 @@ class ManagementSpec extends FeatureSpec {
         .setBody(card.toByteArray()))()
       res.getStatusCode() should equal(200)
 
+      account(secret).getCards().getCardsCount() should equal(1)
+
+    }
+
+    scenario("User can only have one uploaded card") {
+      val secret = device("test")
+      val card = Card
+        .newBuilder()
+        .setImageFace("face.png")
+        .setImageRear("rear.png")
+        .build()
+
+      Http(url(host + "/cards/" + secret)
+        .POST
+        .setBody(card.toByteArray()))()
+
+      Http(url(host + "/cards/" + secret)
+        .POST
+        .setBody(card.toByteArray()))()
+
+      account(secret).getCards().getCardsCount() should equal(1)
+
     }
 
     scenario("User Marks a Card as Accepted from their Stack") {
       val secret = device("test")
       val stack0 = account(secret).getStack()
       val uuid = java.util.UUID.randomUUID().toString()
-      
+
       val card = Card
         .newBuilder()
         .setStatus("accepted")

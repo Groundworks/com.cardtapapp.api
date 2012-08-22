@@ -40,7 +40,7 @@ class ShareManager extends Actor {
           newShare(share)
           
           // Tell Accounts Actor to Modify Account //
-          accountManager ? AddCardToAccount(shareWith, card) map {
+          accountManager ? AddCardToStack(shareWith, card) map {
             case Success => s ! Success
             case _ =>
               logger.warn("Share Card Failed to Add Card to Account")

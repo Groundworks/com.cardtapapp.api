@@ -12,7 +12,8 @@ case class GetAccount(email: String)
 case class SetAccount(account: Account)
 case class RedirectLogin(secret: String)
 case class EnsureAccountExists(email: String)
-case class AddCardToAccount(email: String, card: Card)
+case class AddCardToStack(email: String, card: Card)
+case class AddCardToCards(email: String, card: Card)
 case class UpdateStackForAccount(account: Account, stack: Stack)
 
 case object AccountNotAuthorized
@@ -41,6 +42,17 @@ class AccountManager extends Actor {
 
   def receive = {
 
+    case AddCardToCards(email: String, card: Card) =>
+      val s = sender
+      getAccountByEmail(email) map { account =>
+        setAccountByEmail(email,
+          Account
+            .newBuilder(account)
+            .setCards(
+              Stack.newBuilder().addCards(card)).build())
+        s ! Success
+      } getOrElse s ! AccountNotFound
+
     case UpdateStackForAccount(account: Account, stack: Stack) =>
       val account1 = Account
         .newBuilder(getAccountByEmail(account.getEmail()).get)
@@ -52,7 +64,7 @@ class AccountManager extends Actor {
     case GetAccount(email) =>
       sender ! getAccountByEmail(email)
 
-    case AddCardToAccount(email, card) =>
+    case AddCardToStack(email, card) =>
       val s = sender
       self ? EnsureAccountExists(email) map {
         case account: Account =>
