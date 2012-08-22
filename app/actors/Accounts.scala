@@ -6,6 +6,7 @@ import akka.util._
 import akka.pattern._
 import com.cardtapapp.api.Main._
 import util.Random._
+import util.HMac
 
 case class GetAccount(email: String)
 case class SetAccount(account: Account)
@@ -42,13 +43,17 @@ class AccountManager extends Actor {
   def receive = {
 
     case AddCardToCards(email: String, card: Card) =>
+      
+      val hash = HMac.sign( card.getBundle().toByteArray() )
+      val cardWithSignature = Card.newBuilder(card).setHmac(hash)
+      
       val s = sender
       getAccountByEmail(email) map { account =>
         setAccountByEmail(email,
           Account
             .newBuilder(account)
             .setCards(
-              Stack.newBuilder().addCards(card)).build())
+              Stack.newBuilder().addCards(cardWithSignature)).build())
         s ! Success
       } getOrElse s ! AccountNotFound
 
@@ -65,11 +70,15 @@ class AccountManager extends Actor {
 
     case AddCardToStack(email, card) =>
       val s = sender
+      
+      val hash = HMac.sign( card.getBundle().toByteArray() )
+      val cardWithSignature = Card.newBuilder(card).setHmac(hash)
+      
       self ? EnsureAccountExists(email) map {
         case account: Account =>
           val cardStackOld = account.getStack()
           getCardByIdFromStack(card.getUuid(), cardStackOld) getOrElse {
-            val cardStackNew = Stack.newBuilder(cardStackOld).addCards(card).build()
+            val cardStackNew = Stack.newBuilder(cardStackOld).addCards(cardWithSignature).build()
             val accountNew = Account.newBuilder(account).setStack(cardStackNew).build()
             setAccountByEmail(email, accountNew)
           }
