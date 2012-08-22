@@ -43,6 +43,10 @@ object Application extends Controller {
       new AkkaPromise(_query).map { _handler }
     }
   }
+  
+  def cards(secret: String) = Action {
+    Ok
+  }
 
   def stack(secret: String) = Action { request =>
     request.body.asRaw.flatMap { buffer =>

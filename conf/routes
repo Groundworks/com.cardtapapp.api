@@ -1,11 +1,6 @@
-# Routes
-# This file defines all application routes (Higher priority routes first)
-# ~~~~
-
 # Redirect Lost Users
 
 POST /register            controllers.Application.register
-
 GET  /login/*secret       controllers.Application.login(secret)
 POST /share/*secret       controllers.Application.share(secret)
 GET  /auth/*devcode       controllers.Application.auth(devcode)
@@ -14,7 +9,9 @@ GET  /assets/*file        controllers.Assets.at(path="/public", file)
 GET  /status              controllers.Application.status
 
 # Card and Account Management
+
 POST /stack/*devcode      controllers.Application.stack(devcode)
+POST /cards/*devcode      controllers.Application.cards(devcode)
 
 # Administrative Functions - Not For Production
 

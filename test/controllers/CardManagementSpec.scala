@@ -13,7 +13,7 @@ class ManagementSpec extends FeatureSpec {
 
   import api.Web._
 
-  def addCard(secret: String, face: String, rear:String ){
+  def addCard(secret: String, face: String, rear: String) {
     post("/card/" + secret)("face" -> face, "rear" -> rear)
   }
   def addCard(secret: String, card: Card) {
@@ -30,12 +30,14 @@ class ManagementSpec extends FeatureSpec {
       val secret = device("test")
       val stack0 = account(secret).getStack()
       val count0 = account(secret).getStack().getCardsCount()
-      addCard(secret,"face.png","rear.png")
+
+      addCard(secret, "face.png", "rear.png")
       val count1 = account(secret).getStack().getCardsCount()
       count1 should equal(count0 + 1)
 
       val res = Http(url(host + "/stack/" + secret).POST.setBody(stack0.toByteArray()))()
       res.getStatusCode() should equal(201)
+
       val count2 = account(secret).getStack().getCardsCount()
       count2 should equal(count0)
 
@@ -61,6 +63,21 @@ class ManagementSpec extends FeatureSpec {
 
       then("The card only appears once in the stack")
       count1 should equal(count0 + 1)
+
+    }
+
+    scenario("User uploads their own card") {
+
+      val secret = device("test")
+      val card = Card
+        .newBuilder()
+        .setImageFace("face.png")
+        .setImageRear("rear.png")
+        .build()
+      val res = Http(url(host + "/cards/" + secret)
+        .POST
+        .setBody(card.toByteArray()))()
+      res.getStatusCode() should equal(200)
 
     }
 
