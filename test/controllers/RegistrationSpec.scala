@@ -56,6 +56,7 @@ class AppSpec extends FeatureSpec {
     }
 
     scenario("User is Shared a Card by Another User") {
+      
       val sec1 = device("test2")
       val acc1 = account(sec1)
 
@@ -63,11 +64,12 @@ class AppSpec extends FeatureSpec {
       val acc2_0 = account(sec2)
 
       when("Another user shares a card with another")
-      val rsp = post("/share/" + sec1)("with" -> "test2", "card" -> "")
-      rsp.getStatusCode() should equal(204)
-
+      val share = Share.newBuilder().setCard(Card.newBuilder().setHmac("koala").build()).setWith("test2").build()
+      val res = Http(url(host+"/share/"+sec1).POST.setBody(share.toByteArray()).setHeader("Content-Type", "application/x-protobuf"))()
+      res.getStatusCode() should equal(204)
+      
       val acc2_1 = account(sec2)
-
+      
       then("The other user should have the card appear in their stack")
       acc2_0.getStack().getCardsCount() + 1 should
         equal(acc2_1.getStack().getCardsCount())

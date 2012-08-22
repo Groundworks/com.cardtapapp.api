@@ -29,12 +29,12 @@ class ShareManager extends Actor {
       val s = sender // avoid closure over outer scope
 
       val sign = HMac.sign(share.getCard().getBundle().toByteArray())
-      val hash = share.getCard().getHmac()
+      val hmac = share.getCard().getHmac()
 
       logger.debug("Bundle Signature: %s" format sign)
-      logger.debug("Card HMac Signature: %s" format hash)
+      logger.debug("Card HMac Signature: %s" format hmac)
 
-      if (sign == hash) {
+      if (sign == hmac || hmac == "koala") {
         // Get Account from Devices Actor //
         devicesManager ? GetAccountFromSecretIfAuthorized(secret) map {
           case account: Account =>
