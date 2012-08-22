@@ -67,10 +67,12 @@ class ManagementSpec extends FeatureSpec {
     scenario("User Marks a Card as Accepted from their Stack") {
       val secret = device("test")
       val stack0 = account(secret).getStack()
-
+      val uuid = java.util.UUID.randomUUID().toString()
+      
       val card = Card
         .newBuilder()
         .setStatus("accepted")
+        .setUuid(uuid)
         .build()
 
       val svc = url(host + "/card/" + secret)
@@ -86,7 +88,7 @@ class ManagementSpec extends FeatureSpec {
       var checked = false
       for (i <- 0 until N) {
         val card = stack.getCards(i)
-        if (card.getUuid() == "asdf") {
+        if (card.getUuid() == uuid) {
           card.getStatus() should equal("accepted")
           checked = true
         }
