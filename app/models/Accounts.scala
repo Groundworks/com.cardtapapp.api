@@ -3,7 +3,7 @@ package models
 import models.log.logger
 import models.Database.{ connection => db }
 import com.cardtapapp.api.Main._
-import controllers.Random._
+import util.Random._
 
 object AccountsModel {
   

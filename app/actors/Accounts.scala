@@ -5,7 +5,7 @@ import actors.log.logger
 import akka.util._
 import akka.pattern._
 import com.cardtapapp.api.Main._
-import controllers.Random._
+import util.Random._
 
 case class GetAccount(email: String)
 case class SetAccount(account: Account)

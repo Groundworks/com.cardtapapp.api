@@ -1,6 +1,6 @@
 package models
 
-import controllers.Random._
+import util.Random._
 import com.cardtapapp.api.Main._
 import models.Database.{ connection => db }
 import models.log.logger

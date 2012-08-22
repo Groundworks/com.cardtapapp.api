@@ -4,7 +4,7 @@ import com.cardtapapp.api.Main._
 import akka.actor._
 import akka.pattern._
 import actors.log.logger
-import controllers.Random._
+import util.Random._
 import akka.util.Timeout
 import akka.util.Duration
 
