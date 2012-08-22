@@ -6,7 +6,6 @@ import akka.util._
 import akka.pattern._
 import com.cardtapapp.api.Main._
 import controllers.Random._
-import scala.xml.persistent.SetStorage
 
 case class GetAccount(email: String)
 case class SetAccount(account: Account)

@@ -109,8 +109,7 @@ object Application extends Controller {
             val (face, rear) = value
             Some(Card.newBuilder()
               .setUuid(java.util.UUID.randomUUID().toString)
-              .setImageFace(face)
-              .setImageRear(rear)
+              .setBundle(Bundle.newBuilder().setImageFace(face).setImageRear(rear))
               .build())
           })
     } map { card =>
@@ -135,7 +134,7 @@ object Application extends Controller {
       error => BadRequest("Must Provide `card` and `with` Form Data"),
       value => {
         val (cardShare, cardWith) = value
-        val card = Card.newBuilder().setImageFace("1.png").setImageRear("2.png").build()
+        val card = Card.newBuilder().build() // TODO
         async(sharingManager ? ShareCard(cardWith, card, secret)) {
           case AccountNotFound     => NotFound("Account Error")
           case DeviceNotRegistered => NotFound("Device Error")

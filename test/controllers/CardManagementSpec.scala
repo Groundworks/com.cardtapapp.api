@@ -71,8 +71,7 @@ class ManagementSpec extends FeatureSpec {
       val secret = device("test")
       val card = Card
         .newBuilder()
-        .setImageFace("face.png")
-        .setImageRear("rear.png")
+        .setBundle(Bundle.newBuilder())
         .build()
       val res = Http(url(host + "/cards/" + secret)
         .POST
@@ -87,8 +86,7 @@ class ManagementSpec extends FeatureSpec {
       val secret = device("test")
       val card = Card
         .newBuilder()
-        .setImageFace("face.png")
-        .setImageRear("rear.png")
+        .setBundle(Bundle.newBuilder())
         .build()
 
       Http(url(host + "/cards/" + secret)
