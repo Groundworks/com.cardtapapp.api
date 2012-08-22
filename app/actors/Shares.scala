@@ -5,10 +5,13 @@ import akka.actor._
 import akka.pattern._
 import actors.log.logger
 import util.Random._
+import util.HMac
 import akka.util.Timeout
 import akka.util.Duration
 
-case class ShareCard(email: String, card: Card, secret: String)
+case class ProcessShare(share: Share, secret: String)
+
+case object HMacFailure
 
 class ShareManager extends Actor {
 
@@ -22,33 +25,37 @@ class ShareManager extends Actor {
 
   def receive = {
 
-    case ShareCard(shareWith, card, secret) =>
+    case ProcessShare(share, secret) =>
       val s = sender // avoid closure over outer scope
-      val sharedCard = Card
-      	.newBuilder(card)
-      	.setStatus("shared")
-      	.build()
-      
-      // Get Account from Devices Actor //
-      devicesManager ? GetAccountFromSecretIfAuthorized(secret) map {
-        case account: Account =>
-          val share = Share.newBuilder()
-            .setCard(sharedCard)
-            .setWith(shareWith)
-            .setFrom(account.getEmail())
-            .build()
-          newShare(share)
-          
-          // Tell Accounts Actor to Modify Account //
-          accountManager ? AddCardToStack(shareWith, card) map {
-            case Success => s ! Success
-            case _ =>
-              logger.warn("Share Card Failed to Add Card to Account")
-              s ! Failure
-          }
-        case _ =>
-          logger.warn("Share Card Received Unknown Message from Device Manager")
-          s ! _
+
+      val sign = HMac.sign(share.getCard().getBundle().toByteArray())
+      val hash = share.getCard().getHmac()
+
+      logger.debug("Bundle Signature: %s" format sign)
+      logger.debug("Card HMac Signature: %s" format hash)
+
+      if (sign == hash) {
+        // Get Account from Devices Actor //
+        devicesManager ? GetAccountFromSecretIfAuthorized(secret) map {
+          case account: Account =>
+            newShare(share)
+
+            // Tell Accounts Actor to Modify Account //
+            accountManager ? AddCardToStack(share.getWith(), share.getCard()) map {
+              case Success =>
+                logger.info("Card Shared to %s" format share.getWith())
+                s ! Success
+              case _ =>
+                logger.warn("Share Card Failed to Add Card to Account")
+                s ! Failure
+            }
+          case _ =>
+            logger.warn("Share Card Received Unknown Message from Device Manager")
+            s ! _
+        }
+      } else {
+        logger.warn("Shared Card Not Authorized by Signature")
+        s ! HMacFailure
       }
   }
 }

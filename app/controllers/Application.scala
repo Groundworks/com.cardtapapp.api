@@ -16,7 +16,7 @@ import com.googlecode.protobuf.format.JsonFormat
 import controllers.log.logger
 
 package object log {
-    
+
   val logger = play.api.Logger("controllers")
 }
 
@@ -43,25 +43,25 @@ object Application extends Controller {
       new AkkaPromise(_query).map { _handler }
     }
   }
-  
+
   def cards(secret: String) = Action { request =>
     request.body.asRaw.flatMap { buffer =>
       buffer.asBytes() map { bytes =>
         val card = Card.parseFrom(bytes)
-        async(devicesManager ? GetRegisteredEmail(secret) ){
-          case email:String => 
-            async(accountManager ? AddCardToCards(email,card)){
-              case Success => Ok
+        async(devicesManager ? GetRegisteredEmail(secret)) {
+          case email: String =>
+            async(accountManager ? AddCardToCards(email, card)) {
+              case Success         => Ok
               case AccountNotFound => NotFound
-              case _ => 
+              case _ =>
                 Logger.warn("Unknown Reply Received by Cards Controller")
                 InternalServerError
             }
           case Failure => NotFound
-          case _ => InternalServerError
+          case _       => InternalServerError
         }
       }
-    }getOrElse BadRequest
+    } getOrElse BadRequest
   }
 
   def stack(secret: String) = Action { request =>
@@ -130,19 +130,19 @@ object Application extends Controller {
     "with" -> text))
 
   def share(secret: String) = Action { implicit request =>
-    shareForm.bindFromRequest.fold(
-      error => BadRequest("Must Provide `card` and `with` Form Data"),
-      value => {
-        val (cardShare, cardWith) = value
-        val card = Card.newBuilder().build() // TODO
-        async(sharingManager ? ShareCard(cardWith, card, secret)) {
+    request.body.asRaw.flatMap { raw =>
+      raw.asBytes() map { bytes =>
+        val share = Share.parseFrom(bytes)
+        async(sharingManager ? ProcessShare(share, secret)) {
           case AccountNotFound     => NotFound("Account Error")
+          case HMacFailure         => Unauthorized
           case DeviceNotRegistered => NotFound("Device Error")
           case DeviceNotAuthorized => Unauthorized
           case Success             => NoContent
           case _                   => InternalServerError
         }
-      })
+      }
+    } getOrElse BadRequest
   }
 
   val registerForm = Form("email" -> text)
