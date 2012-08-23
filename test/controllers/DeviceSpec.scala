@@ -21,14 +21,14 @@ class DeviceSpec extends FeatureSpec with GivenWhenThen {
   }
 
   import util.PBKDF2._
-  import sun.misc.{BASE64Decoder,BASE64Encoder}
+  import sun.misc.{ BASE64Decoder, BASE64Encoder }
 
-  def authHeader(id:String,secret:String)={
+  def authHeader(id: String, secret: String) = {
     val cred = Credentials.newBuilder().setDevice(id).setSecret(secret).build.toByteArray()
     val auth = new BASE64Encoder().encode(cred)
-    Map("Authorization"->Seq(auth))
+    Map("Authorization" -> Seq(auth))
   }
-  
+
   feature("Use Password Hashes with Salts") {
 
     scenario("Device authenticates by password hash") {
@@ -39,18 +39,23 @@ class DeviceSpec extends FeatureSpec with GivenWhenThen {
       val dev = Device.newBuilder().setAccount(email).build()
       val pass = "This is my password"
       val (hash, salt) = pbhash(pass)
-      val auth = Authorization.newBuilder().setDevice(dev).setSecretHash(hash).setSecretSalt(salt).build()
+      val auth = Authorization
+        .newBuilder()
+        .setDevice(dev)
+        .setSecretHash(hash)
+        .setSecretSalt(salt)
+        .build()
       val acct = Account.newBuilder().setEmail(email).build()
-      
+
       object A extends App {
         val accounts = collection.mutable.Map[String, Account](uuid -> acct)
         val authorizations = collection.mutable.Map[String, Authorization](devid -> auth)
       }
-      
+
       val request = new FakeRequest(
         "GET",
         "http://localhost/device/" + devid,
-        new FakeHeaders(authHeader(devid,pass)),
+        new FakeHeaders(authHeader(devid, pass)),
         new play.api.mvc.AnyContentAsText(""))
       val resp = A.deviceGet(devid)(request)
       status(resp) must equal(200)
@@ -88,14 +93,14 @@ class DeviceSpec extends FeatureSpec with GivenWhenThen {
       val id = "abc123"
       object A extends App {
         val accounts = collection.mutable.Map[String, Account]()
-        val authorizations = collection.mutable.Map[String, Authorization](id->
-        Authorization.newBuilder().setSecretSalt("LKSDJF".getBytes()).build())
+        val authorizations = collection.mutable.Map[String, Authorization](id ->
+          Authorization.newBuilder().setSecretSalt("LKSDJF".getBytes()).build())
       }
       when("User Gets a device id with improper authorization header")
       val request = new FakeRequest(
         "GET",
         "http://localhost/device/" + id,
-        new FakeHeaders(authHeader(id,"Tom")),
+        new FakeHeaders(authHeader(id, "Tom")),
         new play.api.mvc.AnyContentAsText(""))
       val resp = A.deviceGet(id)(request)
       status(resp) must equal(UNAUTHORIZED)
