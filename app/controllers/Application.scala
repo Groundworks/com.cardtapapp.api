@@ -11,6 +11,7 @@ import javax.crypto._
 import java.security.SecureRandom
 import java.math.BigInteger
 import com.google.protobuf.ByteString
+import java.util.Arrays
 
 object Application extends App {
   val accounts = collection.mutable.Map[String, Account]()
@@ -30,20 +31,34 @@ trait App extends Controller {
   }
 
   import util.PBKDF2._
+  import sun.misc.BASE64Decoder
 
   def deviceGet(id: String) = Action { request =>
-    request.headers.get("Authorization").flatMap { auth =>
-      authorizations.get(id).map { authzn =>
-        val hashStored = authzn.getSecretHash().toByteArray()
-        val salt = authzn.getSecretSalt().toByteArray()
-        val hashRemote = pbhash(auth, salt)
-        if (java.util.Arrays.equals(hashStored, hashRemote)) {
-          Ok(authorizations(id).getDevice().toByteArray())
-        } else {
-          Ok(authorizations(id).getDevice().toByteArray())
+    request.headers.get("Authorization").map { auth =>
+      val bytes = new BASE64Decoder().decodeBuffer(auth)
+      val creds = Credentials.parseFrom(bytes)
+      if(creds.getDevice() equals id){
+        authorizations.get(id).map{ auth=>
+          
+          val hashLocal = auth.getSecretHash().toByteArray()
+          val saltLocal = auth.getSecretSalt().toByteArray()
+          val passCheck = creds.getSecret()
+          val hashCheck = pbhash(passCheck,saltLocal)
+          
+          val checked = java.util.Arrays.equals(hashLocal, hashCheck)
+          if(checked){
+            Ok(auth.getDevice())
+          }else{
+            Unauthorized
+          }
+          
+        }getOrElse{
+          NotFound
         }
+      }else{
+        Unauthorized
       }
-    } getOrElse Unauthorized
+    } getOrElse BadRequest
   }
 
   def accountGet(id: String) = Action { request =>

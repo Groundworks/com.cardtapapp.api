@@ -21,6 +21,13 @@ class DeviceSpec extends FeatureSpec with GivenWhenThen {
   }
 
   import util.PBKDF2._
+  import sun.misc.{BASE64Decoder,BASE64Encoder}
+
+  def authHeader(id:String,secret:String)={
+    val cred = Credentials.newBuilder().setDevice(id).setSecret(secret).build.toByteArray()
+    val auth = new BASE64Encoder().encode(cred)
+    Map("Authorization"->Seq(auth))
+  }
   
   feature("Use Password Hashes with Salts") {
 
@@ -43,7 +50,7 @@ class DeviceSpec extends FeatureSpec with GivenWhenThen {
       val request = new FakeRequest(
         "GET",
         "http://localhost/device/" + devid,
-        new FakeHeaders(Map("Authorization" -> Seq("pass"))),
+        new FakeHeaders(authHeader(devid,pass)),
         new play.api.mvc.AnyContentAsText(""))
       val resp = A.deviceGet(devid)(request)
       status(resp) must equal(200)
@@ -72,22 +79,23 @@ class DeviceSpec extends FeatureSpec with GivenWhenThen {
         new FakeHeaders(),
         new play.api.mvc.AnyContentAsText(""))
       val resp = A.deviceGet(id)(request)
-      status(resp) must equal(UNAUTHORIZED)
+      status(resp) must equal(BAD_REQUEST)
       then("Return unautorized")
 
     }
 
     scenario("Device with incorrect authentication is not granted access") {
+      val id = "abc123"
       object A extends App {
         val accounts = collection.mutable.Map[String, Account]()
-        val authorizations = collection.mutable.Map[String, Authorization]()
+        val authorizations = collection.mutable.Map[String, Authorization](id->
+        Authorization.newBuilder().setSecretSalt("LKSDJF".getBytes()).build())
       }
-      val id = "abc123"
       when("User Gets a device id with improper authorization header")
       val request = new FakeRequest(
         "GET",
         "http://localhost/device/" + id,
-        new FakeHeaders(Map("Authorization" -> Seq("Tom"))),
+        new FakeHeaders(authHeader(id,"Tom")),
         new play.api.mvc.AnyContentAsText(""))
       val resp = A.deviceGet(id)(request)
       status(resp) must equal(UNAUTHORIZED)
