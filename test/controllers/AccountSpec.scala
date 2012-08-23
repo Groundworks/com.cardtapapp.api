@@ -19,6 +19,7 @@ class AccountSpec extends FeatureSpec with GivenWhenThen {
 
       object A extends App {
         val accounts = collection.mutable.Map[String,Account](email->Account.newBuilder().build())
+        val authorizations = collection.mutable.Map[String, Authorization]()
       }
 
       when("User GETs Accout without Authentication Header")
@@ -55,6 +56,7 @@ class AccountSpec extends FeatureSpec with GivenWhenThen {
     scenario("User PUTs and GETs their Account Data") {
       object A extends App {
         val accounts = collection.mutable.Map[String,Account]()
+        val authorizations = collection.mutable.Map[String, Authorization]()
       }
 
       when("User puts a new account to the server")
@@ -69,7 +71,7 @@ class AccountSpec extends FeatureSpec with GivenWhenThen {
       status(resp) must equal(OK)
       then("server returns with OK")
 
-      when("user gets the new account data")
+      when("user PUTs the new account data")
       val request2 = new FakeRequest(
         "GET",
         "http://localhost/account/" + email,
@@ -77,12 +79,12 @@ class AccountSpec extends FeatureSpec with GivenWhenThen {
         new play.api.mvc.AnyContentAsText(""))
       val respa = A.accountGet(email)(request2)
       status(respa) must equal(OK)
-      then("The Account Returns Success")
+      then("The PUT Returns Success")
       val bytes = contentAsBytes(respa)
       val account2 = Account.parseFrom(bytes)
       account2.getFullname() must equal("BOBBY")
       then("the account is updated")
-
+      
     }
 
   }
