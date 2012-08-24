@@ -33,19 +33,6 @@ object HMac {
 
 }
 
-object AuthHeaders {
-    
-  implicit def byteArrayToByteString(bytes: Array[Byte]): ByteString = {
-    ByteString.copyFrom(bytes)
-  }
-
-  def authHeader(id: String, secret: String) = {
-    val cred = Credentials.newBuilder().setDevice(id).setSecret(secret).build.toByteArray()
-    val auth = new BASE64Encoder().encode(cred)
-    Map("Authorization" -> Seq(auth))
-  }
-}
-
 object PBKDF2 {
 
   val factory: SecretKeyFactory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1")
