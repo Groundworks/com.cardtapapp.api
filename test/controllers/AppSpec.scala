@@ -96,11 +96,11 @@ class AppSpec extends FeatureSpec {
 
     val clientid = token.getClientid()
     val clientsecret = token.getClientsecret()
-    val authcode = ClientManager.poll(clientid)
+    val authcode = Repository.poll(clientid)
 
     // Confirmation //
     then("Email should be set in client manager")
-    ClientManager.getClientById(clientid).getEmail() should equal(email)
+    Repository.getClientById(clientid).getEmail() should equal(email)
 
     then("User confirms the new registration")
 
@@ -122,7 +122,7 @@ class AppSpec extends FeatureSpec {
     when("Access token is included")
 
     {
-
+      
       val stack = getStack(clientid)
       stack should not be null
       stack.getIndexesCount() should be > 0

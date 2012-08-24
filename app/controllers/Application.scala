@@ -17,21 +17,38 @@ import controllers._
 import controllers.Implicits._
 import java.util.UUID
 
-object ClientManager {
+object Repository {
 
-  val nextClientId = java.util.UUID.randomUUID().toString()
+  import collection.mutable.Map
+
+  val clients = Map[String, Client]()
+  val inbox = Map[String, Stack]()
+  val stacks = Map[String, Stack]()
+  val cards = Map[String, Card]("test" -> Card.newBuilder().setFace("face.png").setRear("rear.png").build())
+
+  val nextUUID = java.util.UUID.randomUUID().toString()
+
+  def postCard(card: Card) = {
+    val cardid = nextUUID
+    cards(cardid) = card
+    cardid
+  }
+
+  def getCard(cardid: String): Option[Card] = {
+    cards.get(cardid)
+  }
+ 
+  val defaultStack = Stack.newBuilder().addIndexes(
+    Index.newBuilder().setCard("test")).build()
 
   def newClientWithEmail(email: String) = {
-    val clientid = nextClientId
+    val clientid = nextUUID
     clients(clientid) = Client
       .newBuilder()
       .setToken(AccessToken.newBuilder().setClientid(clientid).setClientsecret("???"))
       .setEmail(email)
       .build()
-    stacks(clientid) = Stack
-      .newBuilder()
-      .addIndexes(Index.newBuilder().build())
-      .build()
+    stacks(clientid) = defaultStack
     clientid
   }
 
@@ -43,17 +60,14 @@ object ClientManager {
     clients(clientid)
   }
 
-  val clients = collection.mutable.Map[String, Client]()
-  val inbox = collection.mutable.Map[String, Stack]()
-  val stacks = collection.mutable.Map[String, Stack]()
-
   def getInbox(clientid: String) = {
     inbox.get(clientid).getOrElse(Stack.newBuilder().build())
   }
 
   def postToInbox(clientid: String, index: Index) {
-    inbox.get(clientid).map { stack =>
-      inbox(clientid) = Stack.newBuilder(stack).addIndexes(index).build()
+    inbox.get(clientid).map {
+      (stack =>
+        inbox(clientid) = Stack.newBuilder(stack).addIndexes(index).build())
     } getOrElse {
       inbox(clientid) = Stack.newBuilder().addIndexes(index).build()
     }
@@ -64,11 +78,8 @@ object ClientManager {
   }
 
   def getStack(clientid: String) = {
-    stacks.get(clientid).getOrElse {
-      Stack.newBuilder().build()
-    }
+    stacks.get(clientid).getOrElse{ defaultStack }
   }
-
 }
 
 // -- Controllers -- //
@@ -78,7 +89,7 @@ object Post extends Controller {
 
   def register = DecodeProtobuf(classOf[Registration]) { registration =>
     Action {
-      val token = ClientManager.getClientById(ClientManager.newClientWithEmail(registration.getEmail())).getToken()
+      val token = Repository.getClientById(Repository.newClientWithEmail(registration.getEmail())).getToken()
       Created(token)
     }
   }
@@ -87,7 +98,7 @@ object Post extends Controller {
     DecodeAccessToken { token =>
       Action {
         val clientid = token.getClientid()
-        ClientManager.postToInbox(clientid, index)
+        Repository.postToInbox(clientid, index)
         Accepted
       }
     }
@@ -97,14 +108,6 @@ object Post extends Controller {
 // GET //
 object Get extends Controller {
 
-  def singleItemStack = {
-    Stack.newBuilder().addIndexes(Index.newBuilder()).build()
-  }
-
-  def getCardById(id: String) = {
-    Card.newBuilder().setFace("face.png").setRear("rear.png").build()
-  }
-
   def confirm(key: String) = Action {
     Redirect("/stack")
   }
@@ -112,14 +115,22 @@ object Get extends Controller {
   def stack(uuid: String) = DecodeAccessToken { token =>
     val clientid = token.getClientid()
     Action {
-      Ok(ClientManager.getStack(clientid))
+      Ok(Repository.getStack(clientid))
     }
   }
-  def card(uuid: String) = DecodeAccessToken { token => Action { Ok(getCardById("HI")) } }
+  def card(cardid: String) = DecodeAccessToken { token =>
+    Action {
+      Repository.getCard(cardid).map { card =>
+        Ok(card)
+      } getOrElse {
+        NotFound
+      }
+    }
+  }
   def inbox = DecodeAccessToken { token =>
     Action {
       val clientid = token.getClientid()
-      val stack = ClientManager.getInbox(clientid)
+      val stack = Repository.getInbox(clientid)
       Ok(stack)
     }
   }
@@ -130,7 +141,7 @@ object Put extends Controller {
   def stack(uuid: String) = DecodeAccessToken { token =>
     DecodeProtobuf(classOf[Stack]) { stack =>
       val clientid = token.getClientid()
-      ClientManager.putStack(clientid, stack)
+      Repository.putStack(clientid, stack)
       Action {
         NoContent
       }
