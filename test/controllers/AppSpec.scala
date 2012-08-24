@@ -90,7 +90,7 @@ class AppSpec extends FeatureSpec {
     when("Access token is not presented")
     status(Get.stack(null)(get("/stack/" + clientid))) should equal(UNAUTHORIZED)
     then("Acesss is denied")
-
+    
     when("Access token is included")
     val stack = {
       val res = Get.stack(null)(get("/stack/" + clientid)(authHeader(token)))
