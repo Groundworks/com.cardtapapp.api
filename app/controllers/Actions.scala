@@ -38,19 +38,19 @@ object HMac {
 trait DecodeAccessToken[A] extends Action[A]
 object DecodeAccessToken {
   def base64decode(code: String) = new sun.misc.BASE64Decoder().decodeBuffer(code)
-  def apply[A](bodyParser: BodyParser[A])(block: AccessToken => Request[A] => Result) = new DecodeAccessToken[A] {
+  def apply[A](bodyParser: BodyParser[A])(block: String => Request[A] => Result) = new DecodeAccessToken[A] {
     def parser = bodyParser
     def apply(req: Request[A]) = {
       req.headers.get("Authentication").flatMap { auth =>
         val bytes = base64decode(auth)
         val token = AccessToken.parseFrom(bytes)
         HMac.verify(token).map { clientid =>
-          block(token)(req)
+          block(clientid)(req)
         }
       } getOrElse Results.Unauthorized
     }
   }
-  def apply(block: AccessToken => Request[AnyContent] => Result): Action[AnyContent] = {
+  def apply(block: String => Request[AnyContent] => Result): Action[AnyContent] = {
     DecodeAccessToken(BodyParsers.parse.anyContent)(block)
   }
 }

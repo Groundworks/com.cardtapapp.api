@@ -100,9 +100,8 @@ object Post extends Controller {
   }
 
   def share(email: String) = DecodeProtobuf(classOf[Index]) { index =>
-    DecodeAccessToken { token =>
+    DecodeAccessToken { clientid =>
       Action {
-        val clientid = token.getClientid()
         Repository.postToInbox(clientid, index)
         Accepted
       }
@@ -117,8 +116,7 @@ object Get extends Controller {
     Redirect("/stack")
   }
 
-  def stack(uuid: String) = DecodeAccessToken { token =>
-    val clientid = token.getClientid()
+  def stack(uuid: String) = DecodeAccessToken { clientid =>
     Action {
       Ok(Repository.getStack(clientid))
     }
@@ -132,9 +130,8 @@ object Get extends Controller {
       }
     }
   }
-  def inbox = DecodeAccessToken { token =>
+  def inbox = DecodeAccessToken { clientid =>
     Action {
-      val clientid = token.getClientid()
       val stack = Repository.getInbox(clientid)
       Ok(stack)
     }
@@ -143,9 +140,8 @@ object Get extends Controller {
 
 // PUT //
 object Put extends Controller {
-  def stack(uuid: String) = DecodeAccessToken { token =>
+  def stack(uuid: String) = DecodeAccessToken { clientid =>
     DecodeProtobuf(classOf[Stack]) { stack =>
-      val clientid = token.getClientid()
       Repository.putStack(clientid, stack)
       Action {
         NoContent
