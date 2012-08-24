@@ -57,8 +57,11 @@ class AppSpec extends FeatureSpec {
 
   def getStack(clientid: String)(implicit token: AccessToken) = {
     val res = Get.stack(null)(get("/stack/" + clientid)(authHeader(token)))
-    status(res) should equal(OK)
-    Stack.parseFrom(contentAsBytes(res))
+    if (status(res) equals OK) {
+      Some(Stack.parseFrom(contentAsBytes(res)))
+    } else {
+      None
+    }
   }
 
   def getInbox(clientid: String)(implicit token: AccessToken) = {
@@ -73,8 +76,8 @@ class AppSpec extends FeatureSpec {
     status(res) should equal(CREATED)
     AccessToken.parseFrom(contentAsBytes(res))
   }
-  
-  def shareIndex(card:Index,withEmail:String)(implicit token:AccessToken) = Post.share(null)(post("/share/" + withEmail, card)(authHeader(token)))
+
+  def shareIndex(card: Index, withEmail: String)(implicit token: AccessToken) = Post.share(null)(post("/share/" + withEmail, card)(authHeader(token)))
 
   implicit def bufferToRawContent(message: Message): AnyContent = {
     val buffer = RawBuffer(1024 * 1024, message.toByteArray())
@@ -119,11 +122,20 @@ class AppSpec extends FeatureSpec {
     }
     then("Acesss is denied")
 
+    when("Access token is invalid")
+
+    {
+      implicit val token = AccessToken.newBuilder().setClientid(clientid).setClientsecret("???").build()
+      getStack(clientid) should equal(None)
+    }
+
+    then("Access is denied")
+
     when("Access token is included")
 
     {
-      
-      val stack = getStack(clientid)
+
+      val stack = getStack(clientid).get
       stack should not be null
       stack.getIndexesCount() should be > 0
 
@@ -140,33 +152,37 @@ class AppSpec extends FeatureSpec {
         card.getRear().length() should be > 0
         then("Downloaded Card should contain urls to face and rear images")
       }
-      
+
     }
     // Sharing //
     then("User is shared a card by another user")
-    
+
     {
-      implicit val token = register("kim@example.com")
-      val stack = getStack(token.getClientid())
-      val index = stack.getIndexes(0)
-      shareIndex(index,email)
+      val altToken = register("kim@example.com")
+      val card = Card.newBuilder().setFace("FF").setRear("RR").build()
+      val cardid = Repository.postCard(card)
+      val index = Index.newBuilder().setCard(cardid).build()
+      shareIndex(index, email)(altToken)
+
+      val inbox = getInbox(clientid)
+      inbox.getIndexesCount() should be > 0
     }
-    
+
     when("User downloads inbox")
-    
+
     {
       val inbox = getInbox(clientid)
       inbox.getIndexesCount() should be > 0
     }
-    
 
     then("User shares a card with another user")
 
     {
+      val card = Card.newBuilder().setFace("FACE-1").setRear("REAR-1").build()
+      val cardid = Repository.postCard(card)
       val withEmail = "tom@example.com"
-      val cardid = "???"
       val index = Index.newBuilder().setCard(cardid).build()
-      val res = shareIndex(index,withEmail)
+      val res = shareIndex(index, withEmail)
       status(res) should equal(ACCEPTED)
     }
 
@@ -179,7 +195,7 @@ class AppSpec extends FeatureSpec {
       status(res) should equal(NO_CONTENT)
 
       val stack1 = getStack(clientid)
-      stack1.getIndexesCount() should equal(0)
+      stack1.get.getIndexesCount() should equal(0)
     }
 
   }

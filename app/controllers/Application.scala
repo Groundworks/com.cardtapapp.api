@@ -37,15 +37,20 @@ object Repository {
   def getCard(cardid: String): Option[Card] = {
     cards.get(cardid)
   }
- 
+
   val defaultStack = Stack.newBuilder().addIndexes(
     Index.newBuilder().setCard("test")).build()
+
+  def generateAccessToken(clientid:String) = {
+    val clientsecret = HMac.sign(clientid.getBytes())
+    AccessToken.newBuilder().setClientid(clientid).setClientsecret(clientsecret).build()
+  }
 
   def newClientWithEmail(email: String) = {
     val clientid = nextUUID
     clients(clientid) = Client
       .newBuilder()
-      .setToken(AccessToken.newBuilder().setClientid(clientid).setClientsecret("???"))
+      .setToken(generateAccessToken(clientid))
       .setEmail(email)
       .build()
     stacks(clientid) = defaultStack
@@ -78,7 +83,7 @@ object Repository {
   }
 
   def getStack(clientid: String) = {
-    stacks.get(clientid).getOrElse{ defaultStack }
+    stacks.get(clientid).getOrElse { defaultStack }
   }
 }
 
