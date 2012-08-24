@@ -12,6 +12,25 @@ import java.security.SecureRandom
 import java.math.BigInteger
 import com.google.protobuf.ByteString
 import java.util.Arrays
+import sun.misc.BASE64Decoder
+
+trait DecodeAccessToken[A] extends Action[A]
+object DecodeAccessToken {
+  def base64decode(code:String) = new sun.misc.BASE64Decoder().decodeBuffer(code)
+  def apply[A](bodyParser: BodyParser[A])(block: AccessToken => Request[A] => Result) = new DecodeAccessToken[A] {
+    def parser = bodyParser
+    def apply(req: Request[A]) = {
+      req.headers.get("Authentication").map { auth =>
+        val bytes = base64decode(auth)
+        val token = AccessToken.parseFrom(bytes)
+        block(token)(req)
+      }getOrElse Results.Unauthorized
+    }
+  }
+  def apply(block: AccessToken => Request[AnyContent] => Result): Action[AnyContent] = {
+    DecodeAccessToken(BodyParsers.parse.anyContent)(block)
+  }
+}
 
 object ClientManager {
   def poll(clientid: String) = {
@@ -22,7 +41,7 @@ object ClientManager {
 
 object Post extends Controller {
   def register = Action { Created }
-  def share(email: String) = Action { Accepted }
+  def share(email: String) = DecodeAccessToken { token => Action { Accepted } }
 }
 
 object Get extends Controller {
@@ -38,13 +57,16 @@ object Get extends Controller {
     Stack.newBuilder().addIndexes(Index.newBuilder()).build()
   }
 
-  def confirm(key: String) = Action { Redirect("/stack") }
-  def stack(uuid: String) = Action { Ok(singleItemStack) }
-  def card(uuid: String) = Action { Ok }
-  def inbox = Action { Ok(singleItemStack) }
+  def confirm(key: String) = Action {
+    Redirect("/stack")
+  }
+
+  def stack(uuid: String) = DecodeAccessToken { token => Action { Ok(singleItemStack) } }
+  def card(uuid: String) = DecodeAccessToken { token => Action { Ok } }
+  def inbox =  DecodeAccessToken { token => Action{ Ok(singleItemStack) }}
 
 }
 
 object Put extends Controller {
-  def stack(uuid: String) = Action { NoContent }
+  def stack(uuid: String) = DecodeAccessToken { token => Action { NoContent }}
 }
