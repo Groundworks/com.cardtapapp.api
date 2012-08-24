@@ -65,6 +65,7 @@ class AppSpec extends FeatureSpec {
       status(res) must equal(CREATED)
       AccessToken.parseFrom(contentAsBytes(res))
     }
+    token must not be null
     
     val clientid     = token.getClientid()
     val clientsecret = token.getClientsecret()
@@ -84,7 +85,18 @@ class AppSpec extends FeatureSpec {
       status(res) must equal(OK)
       Stack.parseFrom(contentAsBytes(res))
     }
+    stack must not be null
     stack.getIndexesCount() must be > 0
+    
+    then("User device downloads cards in stack")
+    
+    for(i<-0 until stack.getIndexesCount()){
+      val cardid = stack.getIndexes(i).getCard()
+      val res = Get.card(cardid)(get("/card/"+cardid))
+      status(res) must equal(OK)
+      val card = Card.parseFrom(contentAsBytes(res))
+      card must not be null
+    }
     
     then("User is shared a card by another user")
     
