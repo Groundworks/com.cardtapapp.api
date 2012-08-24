@@ -13,70 +13,128 @@ import java.math.BigInteger
 import com.google.protobuf.ByteString
 import java.util.Arrays
 import sun.misc.BASE64Decoder
-
-trait DecodeAccessToken[A] extends Action[A]
-object DecodeAccessToken {
-  def base64decode(code: String) = new sun.misc.BASE64Decoder().decodeBuffer(code)
-  def apply[A](bodyParser: BodyParser[A])(block: AccessToken => Request[A] => Result) = new DecodeAccessToken[A] {
-    def parser = bodyParser
-    def apply(req: Request[A]) = {
-      req.headers.get("Authentication").map { auth =>
-        val bytes = base64decode(auth)
-        val token = AccessToken.parseFrom(bytes)
-        block(token)(req)
-      } getOrElse Results.Unauthorized
-    }
-  }
-  def apply(block: AccessToken => Request[AnyContent] => Result): Action[AnyContent] = {
-    DecodeAccessToken(BodyParsers.parse.anyContent)(block)
-  }
-}
-
+import controllers._
 import controllers.Implicits._
-object Implicits {
-  implicit def contentTypeOf_Protobuf: ContentTypeOf[Message] = {
-    ContentTypeOf[Message](Some("application/x-protobuf"))
-  }
-  implicit def writeableOf_Protobuf: Writeable[Message] = {
-    Writeable[Message](message => message.toByteArray())
-  }
-}
+import java.util.UUID
 
 object ClientManager {
+
+  val nextClientId = java.util.UUID.randomUUID().toString()
+
+  def newClientWithEmail(email: String) = {
+    val clientid = nextClientId
+    clients(clientid) = Client
+      .newBuilder()
+      .setToken(AccessToken.newBuilder().setClientid(clientid).setClientsecret("???"))
+      .setEmail(email)
+      .build()
+    stacks(clientid) = Stack
+      .newBuilder()
+      .addIndexes(Index.newBuilder().build())
+      .build()
+    clientid
+  }
+
   def poll(clientid: String) = {
     "confirmationcode"
   }
-  def getClientById(clientid:String)={
+
+  def getClientById(clientid: String) = {
     clients(clientid)
   }
-  val clients = collection.mutable.Map[String, Client](
-    "f023jf0329fj32" -> Client.newBuilder().setToken(AccessToken.newBuilder().setClientid("f023jf0329fj32").setClientsecret("lkasjfalskdjf")).build())
-}
 
-object Post extends Controller {
-  def register = Action {
-    val token = ClientManager.getClientById("f023jf0329fj32")
-    Created(token)
+  val clients = collection.mutable.Map[String, Client]()
+  val inbox = collection.mutable.Map[String, Stack]()
+  val stacks = collection.mutable.Map[String, Stack]()
+
+  def getInbox(clientid: String) = {
+    inbox.get(clientid).getOrElse(Stack.newBuilder().build())
   }
-  def share(email: String) = DecodeAccessToken { token => Action { Accepted } }
+
+  def postToInbox(clientid: String, index: Index) {
+    inbox.get(clientid).map { stack =>
+      inbox(clientid) = Stack.newBuilder(stack).addIndexes(index).build()
+    } getOrElse {
+      inbox(clientid) = Stack.newBuilder().addIndexes(index).build()
+    }
+  }
+
+  def putStack(clientid: String, stack: Stack) {
+    stacks(clientid) = stack
+  }
+
+  def getStack(clientid: String) = {
+    stacks.get(clientid).getOrElse {
+      Stack.newBuilder().build()
+    }
+  }
+
 }
 
+// -- Controllers -- //
+
+// POST //
+object Post extends Controller {
+
+  def register = DecodeProtobuf(classOf[Registration]) { registration =>
+    Action {
+      val token = ClientManager.getClientById(ClientManager.newClientWithEmail(registration.getEmail())).getToken()
+      Created(token)
+    }
+  }
+
+  def share(email: String) = DecodeProtobuf(classOf[Index]) { index =>
+    DecodeAccessToken { token =>
+      Action {
+        val clientid = token.getClientid()
+        ClientManager.postToInbox(clientid, index)
+        Accepted
+      }
+    }
+  }
+}
+
+// GET //
 object Get extends Controller {
 
   def singleItemStack = {
     Stack.newBuilder().addIndexes(Index.newBuilder()).build()
   }
 
+  def getCardById(id: String) = {
+    Card.newBuilder().setFace("face.png").setRear("rear.png").build()
+  }
+
   def confirm(key: String) = Action {
     Redirect("/stack")
   }
 
-  def stack(uuid: String) = DecodeAccessToken { token => Action { Ok(singleItemStack) } }
-  def card(uuid: String) = DecodeAccessToken { token => Action { Ok } }
-  def inbox = DecodeAccessToken { token => Action { Ok(singleItemStack) } }
-
+  def stack(uuid: String) = DecodeAccessToken { token =>
+    val clientid = token.getClientid()
+    Action {
+      Ok(ClientManager.getStack(clientid))
+    }
+  }
+  def card(uuid: String) = DecodeAccessToken { token => Action { Ok(getCardById("HI")) } }
+  def inbox = DecodeAccessToken { token =>
+    Action {
+      val clientid = token.getClientid()
+      val stack = ClientManager.getInbox(clientid)
+      Ok(stack)
+    }
+  }
 }
 
+// PUT //
 object Put extends Controller {
-  def stack(uuid: String) = DecodeAccessToken { token => Action { NoContent } }
+  def stack(uuid: String) = DecodeAccessToken { token =>
+    DecodeProtobuf(classOf[Stack]) { stack =>
+      val clientid = token.getClientid()
+      ClientManager.putStack(clientid, stack)
+      Action {
+        NoContent
+      }
+    }
+  }
 }
+
