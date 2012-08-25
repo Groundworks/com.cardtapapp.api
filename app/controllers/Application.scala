@@ -1,6 +1,6 @@
 package controllers
 
-import messages.Main._
+import protobuf.Main._
 import play.api.mvc._
 import controllers._
 import controllers.Implicits._

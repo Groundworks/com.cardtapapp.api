@@ -1,6 +1,6 @@
 package controllers
 
-import messages.Main._
+import protobuf.Main._
 import com.google.protobuf.Message
 import org.scalatest._
 import org.scalatest.GivenWhenThen._

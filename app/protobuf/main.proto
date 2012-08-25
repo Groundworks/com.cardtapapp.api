@@ -1,0 +1,30 @@
+package protobuf;
+
+message Index {
+  optional string card = 1;
+}
+
+message Card {
+  optional string face = 1;
+  optional string rear = 2;
+}
+
+message Registration { 
+  optional string email = 1;
+}
+
+message AccessToken { 
+  optional string clientid = 1;
+  optional string clientsecret = 2;
+}
+
+message Stack {
+  repeated Index indexes = 1;
+}
+
+message Client {
+  optional string accountid  = 1;
+  optional string email      = 2;
+  optional string status     = 3;
+  optional AccessToken token = 4;
+}

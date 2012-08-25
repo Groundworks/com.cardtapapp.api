@@ -1,7 +1,7 @@
 package controllers
 
 import play.api.mvc._
-import messages.Main.AccessToken
+import protobuf.Main.AccessToken
 import com.google.protobuf.Message
 import play.api.Play
 import java.security.spec.KeySpec

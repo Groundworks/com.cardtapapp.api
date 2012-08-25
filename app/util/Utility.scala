@@ -2,7 +2,7 @@ package util
 
 import java.util.{ UUID => JavaUUID }
 import play.api.Play
-import messages.Main._
+import protobuf.Main._
 import java.security.spec.KeySpec
 import javax.crypto.spec._
 import javax.crypto._
