@@ -10,7 +10,7 @@ import play.api.test.Helpers._
 import play.api.mvc._
 import sun.misc.BASE64Encoder
 
-class AppSpec extends FeatureSpec {
+object CardTap {
 
   val POST = "POST"
   val GET = "GET"
@@ -83,6 +83,12 @@ class AppSpec extends FeatureSpec {
     val buffer = RawBuffer(1024 * 1024, message.toByteArray())
     AnyContentAsRaw(buffer)
   }
+
+}
+
+class AppSpec extends FeatureSpec {
+
+  import CardTap._
 
   val email = "bob@example.com"
 
@@ -162,10 +168,9 @@ class AppSpec extends FeatureSpec {
       val card = Card.newBuilder().setFace("FF").setRear("RR").build()
       val cardid = Repository.postCard(card)
       val index = Index.newBuilder().setCard(cardid).build()
+      val N = getInbox(clientid).getIndexesCount()
       shareIndex(index, email)(altToken)
-
-      val inbox = getInbox(clientid)
-      inbox.getIndexesCount() should be > 0
+      getInbox(clientid).getIndexesCount() should equal(N + 1)
     }
 
     when("User downloads inbox")

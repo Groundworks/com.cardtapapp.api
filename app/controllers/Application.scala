@@ -2,20 +2,8 @@ package controllers
 
 import messages.Main._
 import play.api.mvc._
-import play.api.http.{ Writeable, ContentTypeOf }
-import com.google.protobuf.Message
-import play.api.libs.iteratee.Iteratee
-import java.security.spec.KeySpec
-import javax.crypto.spec.PBEKeySpec
-import javax.crypto._
-import java.security.SecureRandom
-import java.math.BigInteger
-import com.google.protobuf.ByteString
-import java.util.Arrays
-import sun.misc.BASE64Decoder
 import controllers._
 import controllers.Implicits._
-import java.util.UUID
 
 object Repository {
 
@@ -121,6 +109,7 @@ object Get extends Controller {
       Ok(Repository.getStack(clientid))
     }
   }
+  
   def card(cardid: String) = DecodeAccessToken { token =>
     Action {
       Repository.getCard(cardid).map { card =>
@@ -130,12 +119,14 @@ object Get extends Controller {
       }
     }
   }
+  
   def inbox = DecodeAccessToken { clientid =>
     Action {
       val stack = Repository.getInbox(clientid)
       Ok(stack)
     }
   }
+  
 }
 
 // PUT //

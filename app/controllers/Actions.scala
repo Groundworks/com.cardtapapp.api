@@ -61,18 +61,22 @@ object DecodeProtobuf {
   def apply[P <: Message, A](bodyParser: BodyParser[A], proto: Class[P])(block: P => Request[A] => Result) = new DecodeProtobuf[P, A] {
     def parser = bodyParser
     def apply(req: Request[A]) = {
-      req.body.asInstanceOf[AnyContent].asRaw.flatMap { raw =>
-        raw.asBytes().map { bytes =>
-          try {
-            val parseFrom = proto.getMethod("parseFrom", classOf[Array[Byte]])
-            val message: P = parseFrom.invoke(proto, bytes).asInstanceOf[P]
-            block(message)(req)
-          } catch {
-            case e: NoSuchMethodException => Results.BadRequest
+      if (req.body == null) {
+        Results.BadRequest
+      } else {
+        req.body.asInstanceOf[AnyContent].asRaw.flatMap { raw =>
+          raw.asBytes().map { bytes =>
+            try {
+              val parseFrom = proto.getMethod("parseFrom", classOf[Array[Byte]])
+              val message: P = parseFrom.invoke(proto, bytes).asInstanceOf[P]
+              block(message)(req)
+            } catch {
+              case e: NoSuchMethodException => Results.BadRequest
+            }
           }
         }
-      }
-    } getOrElse { Results.InternalServerError }
+      } getOrElse { Results.InternalServerError }
+    }
   }
   def apply[P <: Message](proto: Class[P])(block: P => Request[AnyContent] => Result): Action[AnyContent] = {
     DecodeProtobuf(BodyParsers.parse.anyContent, proto)(block)
