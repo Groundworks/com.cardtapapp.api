@@ -4,6 +4,34 @@ import protobuf.Main._
 import play.api.mvc._
 import controllers._
 import controllers.Implicits._
+import play.api.Play.current
+
+object Database {
+  val default = play.api.db.DB.getConnection()
+}
+
+object Bigtable {
+  import Database.{default=>db}
+  def put(rowkey:String,column:String,buffer:Array[Byte]){
+    val stmt = db.prepareStatement("INSERT INTO bigtable (rowkey,column,buffer) VALUES (?,?,?)")
+    stmt.setString(1, rowkey)
+    stmt.setString(2, column)
+    stmt.setBytes(3, buffer)
+    stmt.executeUpdate()
+  }
+  def get(rowkey:String,column:String): Option[Array[Byte]]={
+    val stmt = db.prepareStatement("SELECT buffer FROM bigtable WHERE rowkey=? AND column=? ORDER BY version DESC")
+    stmt.setString(1,rowkey)
+    stmt.setString(2,column)
+    val rslt = stmt.executeQuery()
+    if(rslt.next()){
+      val buffer = rslt.getBytes(1)
+      Some(buffer)
+    }else{
+      None
+    }
+  }
+}
 
 object Repository {
 
@@ -12,7 +40,7 @@ object Repository {
   val clients = Map[String, Client]()
   val inbox   = Map[String, Stack]()
   val stacks  = Map[String, Stack]()
-  val cards   = Map[String, Card]("test" -> Card.newBuilder().setFace("face.png").setRear("rear.png").build())
+  val cards   = Map[String, Card]()
 
   val nextUUID = java.util.UUID.randomUUID().toString()
 
@@ -23,7 +51,11 @@ object Repository {
   }
 
   def getCard(cardid: String): Option[Card] = {
-    cards.get(cardid)
+    if (cardid=="test"){
+      Some(Card.newBuilder().setFace("face.png").setRear("rear.png").build())
+    }else{
+      cards.get(cardid) 
+    }
   }
 
   val defaultStack = Stack.newBuilder().addIndexes(

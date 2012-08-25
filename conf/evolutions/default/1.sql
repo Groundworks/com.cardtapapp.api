@@ -2,37 +2,17 @@
  
 # --- !Ups
 
-CREATE TABLE account (
-    id     SERIAL,
-    email  TEXT  NOT NULL,
-    buffer BYTEA NOT NULL,
-    PRIMARY KEY (id)
+CREATE SEQUENCE bigtable_sequence;
+CREATE TABLE bigtable (
+    rowkey    VARCHAR(255) NOT NULL,
+    column    VARCHAR(255) NOT NULL,
+    version   integer DEFAULT nextval('bigtable_sequence') NOT NULL,
+    buffer    BYTEA NOT NULL,
+    PRIMARY KEY (rowkey,column,version)
 );
 
-CREATE TABLE device (
-    id       SERIAL,
-    authcode TEXT NOT NULL,
-    device   TEXT NOT NULL,
-    buffer   BYTEA NOT NULL,
-    PRIMARY KEY (id)
-);
-
-CREATE TABLE card (
-    id       SERIAL,
-    uuid     TEXT NOT NULL,
-    buffer   BYTEA NOT NULL,
-    PRIMARY KEY (id)
-);
-
-CREATE TABLE share (
-    id     SERIAL,
-    buffer BYTEA NOT NULL,
-    PRIMARY KEY (id)
-);
+CREATE TABLE 
  
 # --- !Downs
  
-DROP TABLE account;
-DROP TABLE device;
-DROP TABLE share;
-DROP TABLE card;
+DROP TABLE bigtable;
