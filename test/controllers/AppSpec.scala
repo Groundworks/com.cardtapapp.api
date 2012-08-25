@@ -92,9 +92,9 @@ class AppSpec extends FeatureSpec {
   import CardTap._
 
   val email = "bob@example.com"
-
+ 
   feature("Golden Workflow") {
-    running(FakeApplication()) {
+    running(FakeApplication(additionalConfiguration = inMemoryDatabase())) {
 
       // Registration //
       when("User Registers a New Device")
@@ -111,7 +111,7 @@ class AppSpec extends FeatureSpec {
 
       // Confirmation //
       then("Email should be set in client manager")
-      Repository.getClientById(clientid).getEmail() should equal(email)
+      Repository.getClientById(clientid).get.getEmail() should equal(email)
 
       then("User confirms the new registration")
 

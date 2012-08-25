@@ -5,29 +5,30 @@ import play.api.mvc._
 import controllers._
 import controllers.Implicits._
 import play.api.Play.current
+import com.google.protobuf.Message
 
 object Database {
   val default = play.api.db.DB.getConnection()
 }
 
 object Bigtable {
-  import Database.{default=>db}
-  def put(rowkey:String,column:String,buffer:Array[Byte]){
+  import Database.{ default => db }
+  def put(rowkey: String, column: String, buffer: Array[Byte]) {
     val stmt = db.prepareStatement("INSERT INTO bigtable (rowkey,column,buffer) VALUES (?,?,?)")
     stmt.setString(1, rowkey)
     stmt.setString(2, column)
     stmt.setBytes(3, buffer)
     stmt.executeUpdate()
   }
-  def get(rowkey:String,column:String): Option[Array[Byte]]={
+  def get(rowkey: String, column: String): Option[Array[Byte]] = {
     val stmt = db.prepareStatement("SELECT buffer FROM bigtable WHERE rowkey=? AND column=? ORDER BY version DESC")
-    stmt.setString(1,rowkey)
-    stmt.setString(2,column)
+    stmt.setString(1, rowkey)
+    stmt.setString(2, column)
     val rslt = stmt.executeQuery()
-    if(rslt.next()){
+    if (rslt.next()) {
       val buffer = rslt.getBytes(1)
       Some(buffer)
-    }else{
+    } else {
       None
     }
   }
@@ -35,45 +36,49 @@ object Bigtable {
 
 object Repository {
 
+  import Bigtable._
   import collection.mutable.Map
 
-  val clients = Map[String, Client]()
-  val inbox   = Map[String, Stack]()
-  val stacks  = Map[String, Stack]()
-  val cards   = Map[String, Card]()
+  val CARDS = "CARDS"
+  val CLIENTS = "CLIENTS"
+  val STACKS = "STACKS"
+  val INBOX = "INBOX"
 
   val nextUUID = java.util.UUID.randomUUID().toString()
+  implicit def messageToBytes(message: Message) = {
+    message.toByteArray()
+  }
 
   def postCard(card: Card) = {
     val cardid = nextUUID
-    cards(cardid) = card
+    put(CARDS, cardid, card)
     cardid
   }
 
   def getCard(cardid: String): Option[Card] = {
-    if (cardid=="test"){
+    if (cardid == "test") {
       Some(Card.newBuilder().setFace("face.png").setRear("rear.png").build())
-    }else{
-      cards.get(cardid) 
+    } else {
+      get(CARDS, cardid).map(bytes => Card.parseFrom(bytes))
     }
   }
 
   val defaultStack = Stack.newBuilder().addIndexes(
     Index.newBuilder().setCard("test")).build()
-
-  def generateAccessToken(clientid:String) = {
+    
+  def generateAccessToken(clientid: String) = {
     val clientsecret = HMac.sign(clientid.getBytes())
     AccessToken.newBuilder().setClientid(clientid).setClientsecret(clientsecret).build()
   }
 
   def newClientWithEmail(email: String) = {
     val clientid = nextUUID
-    clients(clientid) = Client
+    put(CLIENTS, clientid, Client
       .newBuilder()
       .setToken(generateAccessToken(clientid))
       .setEmail(email)
-      .build()
-    stacks(clientid) = defaultStack
+      .build().toByteArray())
+    put(STACKS, clientid, defaultStack)
     clientid
   }
 
@@ -81,28 +86,29 @@ object Repository {
     "confirmationcode"
   }
 
-  def getClientById(clientid: String) = {
-    clients(clientid)
+  def getClientById(clientid: String): Option[Client] = {
+    val x = get(CLIENTS, clientid)
+    x.map { bytes => Client.parseFrom(bytes) }
   }
 
   def getInbox(clientid: String) = {
-    inbox.get(clientid).getOrElse(Stack.newBuilder().build())
+    get(INBOX, clientid).map { bytes => Stack.parseFrom(bytes) }.getOrElse(Stack.newBuilder().build())
   }
 
   def postToInbox(clientid: String, index: Index) {
-    inbox.get(clientid).map {
-      (stack =>
-        inbox(clientid) = Stack.newBuilder(stack).addIndexes(index).build())
+    get(INBOX, clientid).map { bytes =>
+      val stack = Stack.parseFrom(bytes)
+      put(INBOX,clientid,Stack.newBuilder(stack).addIndexes(index).build().toByteArray())
     } getOrElse {
-      inbox(clientid) = Stack.newBuilder().addIndexes(index).build()
+      put(INBOX,clientid,Stack.newBuilder().addIndexes(index).build().toByteArray())
     }
   }
 
   def putStack(clientid: String, stack: Stack) {
-    stacks(clientid) = stack
+    put(STACKS,clientid,stack.toByteArray())
   }
 
   def getStack(clientid: String) = {
-    stacks.get(clientid).getOrElse { defaultStack }
+    get(STACKS,clientid).map{bytes=>Stack.parseFrom(bytes)}.getOrElse { defaultStack }
   }
 }

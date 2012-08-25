@@ -13,7 +13,7 @@ class AppCorner extends FlatSpec {
 
   "Registration" should "return empty BadRequest" in {
 
-    running(FakeApplication()) {
+    running(FakeApplication(additionalConfiguration = inMemoryDatabase())) {
 
       1 should equal(1)
 

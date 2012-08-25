@@ -13,8 +13,12 @@ object Post extends Controller {
 
   def register = DecodeProtobuf(classOf[Registration]) { registration =>
     Action {
-      val token = Repository.getClientById(Repository.newClientWithEmail(registration.getEmail())).getToken()
-      Created(token)
+      val clientid = Repository.newClientWithEmail(registration.getEmail())
+      val x= Repository.getClientById(clientid)
+      x.map { client:Client =>
+          val token = client.getToken()
+          Created(token)
+        } getOrElse NotFound
     }
   }
 
@@ -40,7 +44,7 @@ object Get extends Controller {
       Ok(Repository.getStack(clientid))
     }
   }
-  
+
   def card(cardid: String) = DecodeAccessToken { token =>
     Action {
       Repository.getCard(cardid).map { card =>
@@ -50,14 +54,14 @@ object Get extends Controller {
       }
     }
   }
-  
+
   def inbox = DecodeAccessToken { clientid =>
     Action {
       val stack = Repository.getInbox(clientid)
       Ok(stack)
     }
   }
-  
+
 }
 
 // PUT //
